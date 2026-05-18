@@ -12,6 +12,10 @@ export default function Home() {
   const [abierto, setAbierto] = useState(false);
   const [toast, setToast] = useState("");
   const [cargando, setCargando] = useState(true);
+  const [checkout, setCheckout] = useState(false);
+  const [form, setForm] = useState({ nombre: "", telefono: "", direccion: "" });
+  const [enviando, setEnviando] = useState(false);
+  const [pedidoOk, setPedidoOk] = useState(false);
 
   useEffect(() => { init(); }, []);
 
@@ -40,6 +44,28 @@ export default function Home() {
     window.open("https://wa.me/5491133851488?text=" + encodeURIComponent(msg), "_blank");
   };
 
+  const confirmarPedido = async () => {
+    if (!form.nombre || !form.telefono) { setToast("Completa nombre y telefono"); return; }
+    setEnviando(true);
+    const productos = carrito.map(i => i.nombre + " x" + i.cantidad).join(", ");
+    await supabase.from("pedidos").insert({
+      cliente_nombre: form.nombre,
+      cliente_telefono: form.telefono,
+      cliente_direccion: form.direccion,
+      productos: productos,
+      total: totalP,
+      estado: "pendiente",
+    });
+    const msg = "Hola CARITO.SHOP! Hice un pedido:\n" + productos + "\nTotal: $" + totalP.toLocaleString("es-AR") + "\nNombre: " + form.nombre + "\nTel: " + form.telefono + "\nDirec: " + form.direccion;
+    window.open("https://wa.me/5491133851488?text=" + encodeURIComponent(msg), "_blank");
+    setEnviando(false);
+    setPedidoOk(true);
+    setCarrito([]);
+    setCheckout(false);
+    setAbierto(false);
+    setForm({ nombre: "", telefono: "", direccion: "" });
+  };
+
   return (
     <main style={{ minHeight: "100vh", background: "#0a0a0a", fontFamily: "sans-serif" }}>
       {toast !== "" && (
@@ -47,6 +73,54 @@ export default function Home() {
           {toast}
         </div>
       )}
+
+      {pedidoOk && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 2000, background: "rgba(0,0,0,0.9)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ background: "#111", border: "1px solid #ff2d78", borderRadius: 20, padding: 40, textAlign: "center", maxWidth: 320 }}>
+            <div style={{ fontSize: 60, marginBottom: 16 }}>🎉</div>
+            <h2 style={{ ...neon, fontSize: 22, fontWeight: 900, marginBottom: 12 }}>Pedido confirmado</h2>
+            <p style={{ color: "#888", fontSize: 14, marginBottom: 24 }}>Te vamos a contactar pronto para coordinar el pago y envio</p>
+            <button onClick={() => setPedidoOk(false)} style={{ width: "100%", padding: 13, background: "linear-gradient(135deg, #ff2d78, #ff0055)", border: "none", borderRadius: 12, color: "#fff", fontWeight: 800, cursor: "pointer" }}>
+              Seguir comprando
+            </button>
+          </div>
+        </div>
+      )}
+
+      {checkout && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 1500, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div onClick={() => setCheckout(false)} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.8)" }} />
+          <div style={{ position: "relative", background: "#111", border: "1px solid #ff2d78", borderRadius: 20, padding: 28, width: "90%", maxWidth: 400 }}>
+            <h2 style={{ ...neon, fontSize: 20, fontWeight: 900, marginBottom: 6 }}>Finalizar pedido</h2>
+            <p style={{ color: "#555", fontSize: 13, marginBottom: 20 }}>{"Total: $" + totalP.toLocaleString("es-AR")}</p>
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ color: "#888", fontSize: 12, marginBottom: 6 }}>Nombre completo *</div>
+              <input value={form.nombre} onChange={e => setForm(p => ({ ...p, nombre: e.target.value }))}
+                placeholder="Tu nombre"
+                style={{ width: "100%", padding: 10, borderRadius: 10, border: "1px solid #333", background: "#0a0a0a", color: "#fff", fontSize: 14, boxSizing: "border-box" }} />
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ color: "#888", fontSize: 12, marginBottom: 6 }}>Telefono *</div>
+              <input value={form.telefono} onChange={e => setForm(p => ({ ...p, telefono: e.target.value }))}
+                placeholder="Tu telefono"
+                style={{ width: "100%", padding: 10, borderRadius: 10, border: "1px solid #333", background: "#0a0a0a", color: "#fff", fontSize: 14, boxSizing: "border-box" }} />
+            </div>
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ color: "#888", fontSize: 12, marginBottom: 6 }}>Direccion de envio</div>
+              <input value={form.direccion} onChange={e => setForm(p => ({ ...p, direccion: e.target.value }))}
+                placeholder="Tu direccion"
+                style={{ width: "100%", padding: 10, borderRadius: 10, border: "1px solid #333", background: "#0a0a0a", color: "#fff", fontSize: 14, boxSizing: "border-box" }} />
+            </div>
+            <button onClick={confirmarPedido} disabled={enviando} style={{ width: "100%", padding: 13, background: "linear-gradient(135deg, #ff2d78, #ff0055)", border: "none", borderRadius: 12, color: "#fff", fontWeight: 800, fontSize: 15, cursor: "pointer", marginBottom: 10 }}>
+              {enviando ? "Enviando..." : "Confirmar pedido"}
+            </button>
+            <button onClick={() => setCheckout(false)} style={{ width: "100%", padding: 11, background: "transparent", border: "1px solid #333", borderRadius: 12, color: "#555", fontWeight: 700, cursor: "pointer" }}>
+              Volver al carrito
+            </button>
+          </div>
+        </div>
+      )}
+
       {abierto && (
         <div style={{ position: "fixed", inset: 0, zIndex: 1000, display: "flex", justifyContent: "flex-end" }}>
           <div onClick={() => setAbierto(false)} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.7)" }} />
@@ -81,14 +155,19 @@ export default function Home() {
                     <span style={{ color: "#fff", fontWeight: 700 }}>Total</span>
                     <span style={{ color: "#ff2d78", fontSize: 20, fontWeight: 900 }}>{"$" + totalP.toLocaleString("es-AR")}</span>
                   </div>
-                  <button style={{ width: "100%", padding: 13, background: "linear-gradient(135deg, #ff2d78, #ff0055)", border: "none", borderRadius: 12, color: "#fff", fontWeight: 800, cursor: "pointer", marginBottom: 8 }}>Finalizar compra</button>
-                  <button onClick={wa} style={{ width: "100%", padding: 11, background: "transparent", border: "1px solid #25D366", borderRadius: 12, color: "#25D366", fontWeight: 700, cursor: "pointer" }}>Pedir por WhatsApp</button>
+                  <button onClick={() => { setCheckout(true); }} style={{ width: "100%", padding: 13, background: "linear-gradient(135deg, #ff2d78, #ff0055)", border: "none", borderRadius: 12, color: "#fff", fontWeight: 800, cursor: "pointer", marginBottom: 8 }}>
+                    Finalizar compra
+                  </button>
+                  <button onClick={wa} style={{ width: "100%", padding: 11, background: "transparent", border: "1px solid #25D366", borderRadius: 12, color: "#25D366", fontWeight: 700, cursor: "pointer" }}>
+                    Pedir por WhatsApp
+                  </button>
                 </div>
               </div>
             )}
           </div>
         </div>
       )}
+
       <header style={{ background: "rgba(10,10,10,0.95)", borderBottom: "1px solid #ff2d78", position: "sticky", top: 0, zIndex: 50 }}>
         <div style={{ maxWidth: 1100, margin: "0 auto", padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
@@ -98,10 +177,12 @@ export default function Home() {
           <button onClick={() => setAbierto(true)} style={{ background: "transparent", border: "2px solid #fff", borderRadius: 12, padding: "10px 16px", color: "#fff", fontWeight: 800, cursor: "pointer" }}>{"Carrito (" + totalU + ")"}</button>
         </div>
       </header>
+
       <section style={{ background: "linear-gradient(135deg, #1a0010 0%, #0a0a0a 50%, #1a0010 100%)", textAlign: "center", padding: "70px 20px", borderBottom: "1px solid #ff2d78" }}>
         <h2 style={{ fontSize: 40, fontWeight: 900, marginBottom: 12, ...neon, fontFamily: "Georgia, serif" }}>Tu tienda favorita</h2>
         <p style={{ color: "#ccc", fontSize: 17, marginBottom: 0 }}>Envios a todo el pais - Paga con MercadoPago</p>
       </section>
+
       <section style={{ maxWidth: 1100, margin: "0 auto", padding: "50px 20px" }}>
         <h3 style={{ fontSize: 26, fontWeight: 900, marginBottom: 28, ...neon }}>Nuestros productos</h3>
         {cargando && <div style={{ textAlign: "center", color: "#ff2d78", padding: 60 }}>Cargando...</div>}
@@ -130,19 +211,22 @@ export default function Home() {
                   <div style={{ marginBottom: 14 }}>
                     <span style={{ fontSize: 22, fontWeight: 900, color: "#ff2d78" }}>{"$" + p.precio.toLocaleString("es-AR")}</span>
                   </div>
-                  <button onClick={() => agregar(p)} style={{ width: "100%", padding: 12, background: "linear-gradient(135deg, #ff2d78, #ff0055)", border: "none", borderRadius: 12, color: "#fff", fontWeight: 800, cursor: "pointer", marginBottom: 8 }}>Agregar al carrito</button>
+                  <button onClick={() => agregar(p)} style={{ width: "100%", padding: 12, background: "linear-gradient(135deg, #ff2d78, #ff0055)", border: "none", borderRadius: 12, color: "#fff", fontWeight: 800, cursor: "pointer", marginBottom: 8 }}>
+                    Agregar al carrito
+                  </button>
                   <button onClick={() => {
-  const msg = "Hola CARITO.SHOP! Me interesa: " + p.nombre + " - $" + p.precio.toLocaleString("es-AR");
-  window.open("https://wa.me/5491133851488?text=" + encodeURIComponent(msg), "_blank");
-}} style={{ width: "100%", padding: 10, background: "transparent", border: "1px solid #25D366", borderRadius: 12, color: "#25D366", fontWeight: 700, cursor: "pointer" }}>
-  Consultar por WhatsApp
-</button>
+                    const msg = "Hola CARITO.SHOP! Me interesa: " + p.nombre + " - $" + p.precio.toLocaleString("es-AR");
+                    window.open("https://wa.me/5491133851488?text=" + encodeURIComponent(msg), "_blank");
+                  }} style={{ width: "100%", padding: 10, background: "transparent", border: "1px solid #25D366", borderRadius: 12, color: "#25D366", fontWeight: 700, cursor: "pointer" }}>
+                    Consultar por WhatsApp
+                  </button>
                 </div>
               </div>
             ))}
           </div>
         )}
       </section>
+
       <footer style={{ textAlign: "center", padding: 28, borderTop: "1px solid #ff2d78", color: "#555", fontSize: 13 }}>
         2026 CARITO.SHOP - Hecho con amor en Argentina
       </footer>
