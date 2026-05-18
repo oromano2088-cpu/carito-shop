@@ -131,7 +131,12 @@ export default function Home() {
                     <span style={{ fontSize: 22, fontWeight: 900, color: "#ff2d78" }}>{"$" + p.precio.toLocaleString("es-AR")}</span>
                   </div>
                   <button onClick={() => agregar(p)} style={{ width: "100%", padding: 12, background: "linear-gradient(135deg, #ff2d78, #ff0055)", border: "none", borderRadius: 12, color: "#fff", fontWeight: 800, cursor: "pointer", marginBottom: 8 }}>Agregar al carrito</button>
-                  <button style={{ width: "100%", padding: 10, background: "transparent", border: "1px solid #25D366", borderRadius: 12, color: "#25D366", fontWeight: 700, cursor: "pointer" }}>Consultar por WhatsApp</button>
+                  <button onClick={() => {
+  const msg = "Hola CARITO.SHOP! Me interesa: " + p.nombre + " - $" + p.precio.toLocaleString("es-AR");
+  window.open("https://wa.me/5491133851488?text=" + encodeURIComponent(msg), "_blank");
+}} style={{ width: "100%", padding: 10, background: "transparent", border: "1px solid #25D366", borderRadius: 12, color: "#25D366", fontWeight: 700, cursor: "pointer" }}>
+  Consultar por WhatsApp
+</button>
                 </div>
               </div>
             ))}
