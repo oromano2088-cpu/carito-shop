@@ -3,11 +3,14 @@ import { useState, useEffect } from "react";
 import { supabase } from "./supabase";
 
 type Producto = { id: number; nombre: string; descripcion: string; precio: number; emoji: string; activo: boolean; imagen: string; categoria: string; };
+type Categoria = { id: number; Nombre: string; };
 type Item = Producto & { cantidad: number };
+
 const neon = { color: "#ff2d78", textShadow: "0 0 10px #ff2d78" };
 
 export default function Home() {
   const [lista, setLista] = useState<Producto[]>([]);
+  const [categorias, setCategorias] = useState<string[]>(["Todos"]);
   const [carrito, setCarrito] = useState<Item[]>([]);
   const [abierto, setAbierto] = useState(false);
   const [toast, setToast] = useState("");
@@ -17,16 +20,29 @@ export default function Home() {
   const [enviando, setEnviando] = useState(false);
   const [pedidoOk, setPedidoOk] = useState(false);
 
-  // Estados nuevos para el filtrado por categorías
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState("Todos");
-  const categorias = ["Todos", "Tecnología", "Bazar", "Hogar"];
 
   useEffect(() => { init(); }, []);
 
   const init = async () => {
-    const { data } = await supabase.from("productos").select("*").eq("activo", true);
-    if (data) setLista(data);
-    setCargando(false);
+    try {
+      setCargando(true);
+      
+      // 1. Traemos los productos activos
+      const { data: prodData } = await supabase.from("productos").select("*").eq("activo", true);
+      if (prodData) setLista(prodData);
+
+      // 2. Traemos las categorías en tiempo real desde Supabase (con N mayúscula)
+      const { data: catData } = await supabase.from("categorias").select("*").order("Nombre", { ascending: true });
+      if (catData) {
+        const nombresBD = catData.map(c => c.Nombre);
+        setCategorias(["Todos", ...nombresBD]);
+      }
+    } catch (err) {
+      console.error("Error en init:", err);
+    } finally {
+      setCargando(false);
+    }
   };
 
   const agregar = (p: Producto) => {
@@ -51,16 +67,16 @@ export default function Home() {
   const confirmarPedido = async () => {
     if (!form.nombre || !form.telefono) { setToast("Completa nombre y telefono"); return; }
     setEnviando(true);
-    const productos = carrito.map(i => i.nombre + " x" + i.cantidad).join(", ");
+    const productosMsg = carrito.map(i => i.nombre + " x" + i.cantidad).join(", ");
     await supabase.from("pedidos").insert({
       cliente_nombre: form.nombre,
       cliente_telefono: form.telefono,
       cliente_direccion: form.direccion,
-      productos: productos,
+      productos: productosMsg,
       total: totalP,
       estado: "pendiente",
     });
-    const msg = "Hola CARITO.SHOP! Hice un pedido:\n" + productos + "\nTotal: $" + totalP.toLocaleString("es-AR") + "\nNombre: " + form.nombre + "\nTel: " + form.telefono + "\nDirec: " + form.direccion;
+    const msg = "Hola CARITO.SHOP! Hice un pedido:\n" + productosMsg + "\nTotal: $" + totalP.toLocaleString("es-AR") + "\nNombre: " + form.nombre + "\nTel: " + form.telefono + "\nDirec: " + form.direccion;
     window.open("https://wa.me/5491133851488?text=" + encodeURIComponent(msg), "_blank");
     setEnviando(false);
     setPedidoOk(true);
@@ -70,11 +86,11 @@ export default function Home() {
     setForm({ nombre: "", telefono: "", direccion: "" });
   };
 
-  // Lógica experta de filtrado en tiempo real
   const productosFiltrados = categoriaSeleccionada === "Todos" 
     ? lista 
     : lista.filter(p => p.categoria === categoriaSeleccionada);
-    return (
+
+  return (
     <main style={{ minHeight: "100vh", background: "#0a0a0a", fontFamily: "sans-serif" }}>
       {toast !== "" && (
         <div style={{ position: "fixed", bottom: 30, left: "50%", transform: "translateX(-50%)", background: "#ff2d78", color: "#fff", padding: "12px 24px", borderRadius: 12, fontWeight: 700, zIndex: 9999 }}>
@@ -193,7 +209,7 @@ export default function Home() {
 
       <section style={{ maxWidth: 1100, margin: "0 auto", padding: "50px 20px" }}>
         
-        {/* Barra de Categorías Estilo Mobile-First */}
+        {/* Barra de Categorías Dinámicas e Inteligentes */}
         <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 20, marginBottom: 20, WebkitOverflowScrolling: "touch" }}>
           {categorias.map(cat => (
             <button 
@@ -247,12 +263,6 @@ export default function Home() {
                   </div>
                   <button onClick={() => agregar(p)} style={{ width: "100%", padding: 12, background: "linear-gradient(135deg, #ff2d78, #ff0055)", border: "none", borderRadius: 12, color: "#fff", fontWeight: 800, cursor: "pointer", marginBottom: 8 }}>
                     Agregar al carrito
-                  </button>
-                  <button onClick={() => {
-                    const msg = "Hola CARITO.SHOP! Me interesa: " + p.nombre + " - $" + p.precio.toLocaleString("es-AR");
-                    window.open("https://wa.me/5491133851488?text=" + encodeURIComponent(msg), "_blank");
-                  }} style={{ width: "100%", padding: 10, background: "transparent", border: "1px solid #25D366", borderRadius: 12, color: "#25D366", fontWeight: 700, cursor: "pointer" }}>
-                    Consultar por WhatsApp
                   </button>
                 </div>
               </div>
