@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "./supabase";
 
-type Producto = { id: number; nombre: string; descripcion: string; precio: number; emoji: string; activo: boolean; imagen: string; };
+type Producto = { id: number; nombre: string; descripcion: string; precio: number; emoji: string; activo: boolean; imagen: string; categoria: string; };
 type Item = Producto & { cantidad: number };
 const neon = { color: "#ff2d78", textShadow: "0 0 10px #ff2d78" };
 
@@ -16,6 +16,10 @@ export default function Home() {
   const [form, setForm] = useState({ nombre: "", telefono: "", direccion: "" });
   const [enviando, setEnviando] = useState(false);
   const [pedidoOk, setPedidoOk] = useState(false);
+
+  // Estados nuevos para el filtrado por categorías
+  const [categoriaSeleccionada, setCategoriaSeleccionada] = useState("Todos");
+  const categorias = ["Todos", "Tecnología", "Bazar", "Hogar"];
 
   useEffect(() => { init(); }, []);
 
@@ -66,7 +70,11 @@ export default function Home() {
     setForm({ nombre: "", telefono: "", direccion: "" });
   };
 
-  return (
+  // Lógica experta de filtrado en tiempo real
+  const productosFiltrados = categoriaSeleccionada === "Todos" 
+    ? lista 
+    : lista.filter(p => p.categoria === categoriaSeleccionada);
+    return (
     <main style={{ minHeight: "100vh", background: "#0a0a0a", fontFamily: "sans-serif" }}>
       {toast !== "" && (
         <div style={{ position: "fixed", bottom: 30, left: "50%", transform: "translateX(-50%)", background: "#ff2d78", color: "#fff", padding: "12px 24px", borderRadius: 12, fontWeight: 700, zIndex: 9999 }}>
@@ -184,17 +192,42 @@ export default function Home() {
       </section>
 
       <section style={{ maxWidth: 1100, margin: "0 auto", padding: "50px 20px" }}>
+        
+        {/* Barra de Categorías Estilo Mobile-First */}
+        <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 20, marginBottom: 20, WebkitOverflowScrolling: "touch" }}>
+          {categorias.map(cat => (
+            <button 
+              key={cat}
+              onClick={() => setCategoriaSeleccionada(cat)}
+              style={{
+                padding: "8px 16px",
+                borderRadius: 20,
+                border: categoriaSeleccionada === cat ? "1px solid #ff2d78" : "1px solid #333",
+                background: categoriaSeleccionada === cat ? "linear-gradient(135deg, #ff2d78, #ff0055)" : "#111",
+                color: "#fff",
+                fontWeight: 700,
+                fontSize: 14,
+                cursor: "pointer",
+                boxShadow: categoriaSeleccionada === cat ? "0 0 10px rgba(255,45,120,0.4)" : "none",
+                whiteSpace: "nowrap"
+              }}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+
         <h3 style={{ fontSize: 26, fontWeight: 900, marginBottom: 28, ...neon }}>Nuestros productos</h3>
         {cargando && <div style={{ textAlign: "center", color: "#ff2d78", padding: 60 }}>Cargando...</div>}
-        {!cargando && lista.length === 0 && (
+        {!cargando && productosFiltrados.length === 0 && (
           <div style={{ textAlign: "center", color: "#555", padding: 60 }}>
             <div style={{ fontSize: 48 }}>🛍️</div>
-            <div style={{ marginTop: 12 }}>No hay productos aun</div>
+            <div style={{ marginTop: 12 }}>No hay productos en esta categoria</div>
           </div>
         )}
-        {!cargando && lista.length > 0 && (
+        {!cargando && productosFiltrados.length > 0 && (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 20 }}>
-            {lista.map(p => (
+            {productosFiltrados.map(p => (
               <div key={p.id} style={{ background: "#111", border: "1px solid #ff2d78", borderRadius: 20, overflow: "hidden" }}>
                 <div style={{ height: 200, overflow: "hidden", borderBottom: "1px solid #ff2d78" }}>
                   {p.imagen ? (
@@ -206,6 +239,7 @@ export default function Home() {
                   )}
                 </div>
                 <div style={{ padding: 18 }}>
+                  <div style={{ marginBottom: 8 }}><span style={{ fontSize: 11, background: "#222", color: "#ff2d78", padding: "4px 8px", borderRadius: 6, fontWeight: 700 }}>{p.categoria}</span></div>
                   <h4 style={{ color: "#fff", fontWeight: 800, fontSize: 16, marginBottom: 6 }}>{p.nombre}</h4>
                   <p style={{ color: "#888", fontSize: 13, marginBottom: 12 }}>{p.descripcion}</p>
                   <div style={{ marginBottom: 14 }}>
