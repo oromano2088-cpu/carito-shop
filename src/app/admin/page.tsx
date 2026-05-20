@@ -13,7 +13,6 @@ export default function Admin() {
   const [productos, setProductos] = useState<Producto[]>([]);
   const [listadoCategorias, setListadoCategorias] = useState<Categoria[]>([]);
   const [cargando, setCargando] = useState(false);
-  
   const [nuevo, setNuevo] = useState({ nombre: "", descripcion: "", precio: "", emoji: "🛍️", imagen: "", categoria: "" });
   const [nuevaCatNombre, setNuevaCatNombre] = useState("");
   const [toast, setToast] = useState("");
@@ -25,8 +24,6 @@ export default function Admin() {
     setCargando(true);
     const { data: prodData } = await supabase.from("productos").select("*");
     if (prodData) setProductos(prodData);
-    
-    // Corregido a "Nombre" con mayúscula para Supabase
     const { data: catData } = await supabase.from("categorias").select("*").order("Nombre", { ascending: true });
     if (catData) {
       setListadoCategorias(catData);
@@ -48,22 +45,19 @@ export default function Admin() {
   };
 
   const agregarCategoria = async () => {
-    if (!nuevaCatNombre.trim()) { mostrarToast("Escribí un nombre"); return; }
+    if (!nuevaCatNombre.trim()) { mostrarToast("Escribi un nombre"); return; }
     const nom = nuevaCatNombre.trim();
-    // Corregido a "Nombre" con mayúscula para la inserción
     const { error } = await supabase.from("categorias").insert({ Nombre: nom });
-    if (error) { mostrarToast("Ya existe esa categoría"); return; }
-    mostrarToast("Categoría creada con éxito 🎉");
+    if (error) { mostrarToast("Ya existe esa categoria"); return; }
+    mostrarToast("Categoria creada con exito");
     setNuevaCatNombre("");
     cargarTodo();
   };
 
   const borrarCategoria = async (id: number, nombre: string) => {
-    const seguro = window.confirm(`¿Estás seguro de borrar la categoría "${nombre}"?`);
-    if (!seguro) return;
     const { error } = await supabase.from("categorias").delete().eq("id", id);
     if (error) { mostrarToast("No se pudo borrar"); return; }
-    mostrarToast("Categoría eliminada");
+    mostrarToast("Categoria eliminada");
     cargarTodo();
   };
 
@@ -81,15 +75,15 @@ export default function Admin() {
   const agregar = async () => {
     if (!nuevo.nombre || !nuevo.precio) { mostrarToast("Completa nombre y precio"); return; }
     const { error } = await supabase.from("productos").insert({
-      Nombre: nuevo.nombre,
+      nombre: nuevo.nombre,
       descripcion: nuevo.descripcion,
       precio: parseInt(nuevo.precio),
       emoji: nuevo.emoji,
       imagen: nuevo.imagen,
-      categoria: nuevo.categoria || "Bazar",
+      categoria: nuevo.categoria,
       activo: true,
     });
-    if (error) { mostrarToast("Error al guardar"); return; }
+    if (error) { mostrarToast("Error al guardar: " + error.message); return; }
     mostrarToast("Producto agregado");
     setNuevo(prev => ({ ...prev, nombre: "", descripcion: "", precio: "", imagen: "" }));
     cargarTodo();
@@ -140,14 +134,14 @@ export default function Admin() {
           <a href="/" style={{ color: "#ff2d78", fontSize: 13, textDecoration: "none" }}>Ver tienda</a>
         </div>
 
-        {/* GESTIÓN DE CATEGORÍAS */}
+        {/* CATEGORIAS */}
         <div style={{ background: "#111", border: "1px solid #ff2d78", borderRadius: 20, padding: 24, marginBottom: 30 }}>
-          <h2 style={{ color: "#fff", fontWeight: 800, fontSize: 18, marginBottom: 16 }}>Gestionar Categorías</h2>
+          <h2 style={{ color: "#fff", fontWeight: 800, fontSize: 18, marginBottom: 16 }}>Gestionar Categorias</h2>
           <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
-            <input 
-              value={nuevaCatNombre} 
+            <input
+              value={nuevaCatNombre}
               onChange={e => setNuevaCatNombre(e.target.value)}
-              placeholder="Nueva categoría (ej: Electro, Accesorios)" 
+              placeholder="Nueva categoria"
               style={{ flex: 1, padding: 10, borderRadius: 10, border: "1px solid #333", background: "#0a0a0a", color: "#fff", fontSize: 13 }}
             />
             <button onClick={agregarCategoria} style={{ padding: "10px 20px", background: "linear-gradient(135deg, #ff2d78, #ff0055)", border: "none", borderRadius: 10, color: "#fff", fontWeight: 700, cursor: "pointer", fontSize: 13 }}>
@@ -157,18 +151,16 @@ export default function Admin() {
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             {listadoCategorias.map(cat => (
               <div key={cat.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "#222", padding: "6px 12px", borderRadius: 20, border: "1px solid #333" }}>
-                {/* Muestra el Nombre correcto desde Supabase */}
                 <span style={{ color: "#fff", fontSize: 13, fontWeight: 600 }}>{cat.Nombre}</span>
-                <button onClick={() => borrarCategoria(cat.id, cat.Nombre)} style={{ background: "none", border: "none", color: "#ff2d78", cursor: "pointer", fontWeight: 800, fontSize: 12, padding: "0 2px" }}>×</button>
+                <button onClick={() => borrarCategoria(cat.id, cat.Nombre)} style={{ background: "none", border: "none", color: "#ff2d78", cursor: "pointer", fontWeight: 800, fontSize: 14 }}>x</button>
               </div>
             ))}
           </div>
         </div>
 
-        {/* PUBLICAR PRODUCTO */}
+        {/* AGREGAR PRODUCTO */}
         <div style={{ background: "#111", border: "1px solid #ff2d78", borderRadius: 20, padding: 24, marginBottom: 30 }}>
           <h2 style={{ color: "#fff", fontWeight: 800, fontSize: 18, marginBottom: 20 }}>Agregar producto</h2>
-          
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
             <div>
               <div style={{ color: "#888", fontSize: 12, marginBottom: 6 }}>Nombre</div>
@@ -183,50 +175,50 @@ export default function Admin() {
                 style={{ width: "100%", padding: 10, borderRadius: 10, border: "1px solid #333", background: "#0a0a0a", color: "#fff", fontSize: 13, boxSizing: "border-box" }} />
             </div>
           </div>
-
           <div style={{ marginBottom: 12 }}>
             <div style={{ color: "#888", fontSize: 12, marginBottom: 6 }}>Descripcion</div>
             <textarea value={nuevo.descripcion} onChange={e => setNuevo(p => ({ ...p, descripcion: e.target.value }))}
               placeholder="Descripcion del producto" rows={2}
               style={{ width: "100%", padding: 10, borderRadius: 10, border: "1px solid #333", background: "#0a0a0a", color: "#fff", fontSize: 13, boxSizing: "border-box", resize: "none" }} />
           </div>
-
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
             <div>
-              <div style={{ color: "#888", fontSize: 12, marginBottom: 6 }}>Categoría</div>
-              <select 
-                value={nuevo.categoria} 
+              <div style={{ color: "#888", fontSize: 12, marginBottom: 6 }}>Categoria</div>
+              <select
+                value={nuevo.categoria}
                 onChange={e => setNuevo(p => ({ ...p, categoria: e.target.value }))}
-                style={{ width: "100%", padding: 10, borderRadius: 10, border: "1px solid #333", background: "#0a0a0a", color: "#fff", fontSize: 13, boxSizing: "border-box", height: "40px" }}
+                style={{ width: "100%", padding: 10, borderRadius: 10, border: "1px solid #333", background: "#0a0a0a", color: "#fff", fontSize: 13, boxSizing: "border-box" }}
               >
-                {/* Armado dinámico con el Nombre correcto */}
                 {listadoCategorias.map(cat => (
                   <option key={cat.id} value={cat.Nombre}>{cat.Nombre}</option>
                 ))}
               </select>
             </div>
             <div>
-              <div style={{ color: "#888", fontSize: 12, marginBottom: 6 }}>Foto</div>
-              <input type="file" accept="image/*" onChange={e => e.target.files && subirFoto(e.target.files[0])}
-                style={{ width: "100%", padding: 8, borderRadius: 10, border: "1px solid #333", background: "#0a0a0a", color: "#888", fontSize: 12, boxSizing: "border-box" }} />
+              <div style={{ color: "#888", fontSize: 12, marginBottom: 6 }}>Emoji</div>
+              <input value={nuevo.emoji} onChange={e => setNuevo(p => ({ ...p, emoji: e.target.value }))}
+                placeholder="🛍️"
+                style={{ width: "100%", padding: 10, borderRadius: 10, border: "1px solid #333", background: "#0a0a0a", color: "#fff", fontSize: 20, boxSizing: "border-box" }} />
             </div>
           </div>
-
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ color: "#888", fontSize: 12, marginBottom: 6 }}>Foto</div>
+            <input type="file" accept="image/*" onChange={e => e.target.files && subirFoto(e.target.files[0])}
+              style={{ width: "100%", padding: 8, borderRadius: 10, border: "1px solid #333", background: "#0a0a0a", color: "#888", fontSize: 12, boxSizing: "border-box" }} />
+          </div>
           {nuevo.imagen && (
             <div style={{ marginBottom: 12 }}>
               <img src={nuevo.imagen} style={{ height: 100, borderRadius: 10, objectFit: "cover" }} />
               <div style={{ color: "#10B981", fontSize: 12, marginTop: 4 }}>Foto lista</div>
             </div>
           )}
-
           {subiendo && <div style={{ color: "#ff2d78", fontSize: 13, marginBottom: 12 }}>Subiendo foto...</div>}
-          
           <button onClick={agregar} style={{ width: "100%", padding: 13, background: "linear-gradient(135deg, #ff2d78, #ff0055)", border: "none", borderRadius: 12, color: "#fff", fontWeight: 800, fontSize: 15, cursor: "pointer" }}>
             Publicar producto
           </button>
         </div>
 
-        {/* LISTADO DE PRODUCTOS */}
+        {/* LISTADO PRODUCTOS */}
         <div style={{ background: "#111", border: "1px solid #ff2d78", borderRadius: 20, padding: 24 }}>
           <h2 style={{ color: "#fff", fontWeight: 800, fontSize: 18, marginBottom: 20 }}>{"Mis productos (" + productos.length + ")"}</h2>
           {cargando && <div style={{ color: "#ff2d78", textAlign: "center", padding: 40 }}>Cargando...</div>}
