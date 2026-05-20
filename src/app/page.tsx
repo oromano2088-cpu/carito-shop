@@ -224,7 +224,7 @@ export default function Home() {
               <div key={p.id} style={{ background: "#111", border: "1px solid #ff2d78", borderRadius: 20, overflow: "hidden" }}>
                 <div style={{ height: 200, overflow: "hidden", borderBottom: "1px solid #ff2d78", position: "relative" }}>
                   {p.imagen ? (
-                    <img src={p.imagen} alt={p.nombre} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    <img src={p.imagen} alt={p.nombre} style={{ width: "100%", height: "100%", objectFit: "contain", background: "#0a0a0a" }} />
                   ) : (
                     <div style={{ background: "linear-gradient(135deg, #1a0010, #0a0a0a)", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 70 }}>
                       {p.emoji}
