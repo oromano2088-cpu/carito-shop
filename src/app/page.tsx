@@ -2,15 +2,12 @@
 import { useState, useEffect } from "react";
 import { supabase } from "./supabase";
 
-type Producto = { id: number; nombre: string; descripcion: string; precio: number; emoji: string; activo: boolean; imagen: string; categoria: string; };
-type Categoria = { id: number; Nombre: string; };
+type Producto = { id: number; nombre: string; descripcion: string; precio: number; emoji: string; activo: boolean; imagen: string; categoria: string; stock: number; };
 type Item = Producto & { cantidad: number };
-
 const neon = { color: "#ff2d78", textShadow: "0 0 10px #ff2d78" };
 
 export default function Home() {
   const [lista, setLista] = useState<Producto[]>([]);
-  const [categorias, setCategorias] = useState<string[]>(["Todos"]);
   const [carrito, setCarrito] = useState<Item[]>([]);
   const [abierto, setAbierto] = useState(false);
   const [toast, setToast] = useState("");
@@ -19,33 +16,27 @@ export default function Home() {
   const [form, setForm] = useState({ nombre: "", telefono: "", direccion: "" });
   const [enviando, setEnviando] = useState(false);
   const [pedidoOk, setPedidoOk] = useState(false);
-
-  const [categoriaSeleccionada, setCategoriaSeleccionada] = useState("Todos");
+  const [categoriaActiva, setCategoriaActiva] = useState("Todos");
+  const [categorias, setCategorias] = useState<string[]>([]);
 
   useEffect(() => { init(); }, []);
 
   const init = async () => {
-    try {
-      setCargando(true);
-      
-      // 1. Traemos los productos activos
-      const { data: prodData } = await supabase.from("productos").select("*").eq("activo", true);
-      if (prodData) setLista(prodData);
-
-      // 2. Traemos las categorías en tiempo real desde Supabase (con N mayúscula)
-      const { data: catData } = await supabase.from("categorias").select("*").order("Nombre", { ascending: true });
-      if (catData) {
-        const nombresBD = catData.map(c => c.Nombre);
-        setCategorias(["Todos", ...nombresBD]);
-      }
-    } catch (err) {
-      console.error("Error en init:", err);
-    } finally {
-      setCargando(false);
+    const { data } = await supabase.from("productos").select("*").eq("activo", true).gt("stock", 0);
+    if (data) {
+      setLista(data);
+      const cats = ["Todos", ...Array.from(new Set(data.map((p: Producto) => p.categoria).filter(Boolean)))];
+      setCategorias(cats);
     }
+    setCargando(false);
   };
 
+  const listaFiltrada = categoriaActiva === "Todos" ? lista : lista.filter(p => p.categoria === categoriaActiva);
+
   const agregar = (p: Producto) => {
+    const enCarrito = carrito.find(i => i.id === p.id);
+    const cantidadEnCarrito = enCarrito ? enCarrito.cantidad : 0;
+    if (cantidadEnCarrito >= p.stock) { setToast("No hay mas stock disponible"); setTimeout(() => setToast(""), 2000); return; }
     setCarrito(prev => {
       const e = prev.find(i => i.id === p.id);
       if (e) return prev.map(i => i.id === p.id ? { ...i, cantidad: i.cantidad + 1 } : i);
@@ -67,16 +58,16 @@ export default function Home() {
   const confirmarPedido = async () => {
     if (!form.nombre || !form.telefono) { setToast("Completa nombre y telefono"); return; }
     setEnviando(true);
-    const productosMsg = carrito.map(i => i.nombre + " x" + i.cantidad).join(", ");
+    const productos = carrito.map(i => i.nombre + " x" + i.cantidad).join(", ");
     await supabase.from("pedidos").insert({
       cliente_nombre: form.nombre,
       cliente_telefono: form.telefono,
       cliente_direccion: form.direccion,
-      productos: productosMsg,
+      productos: productos,
       total: totalP,
       estado: "pendiente",
     });
-    const msg = "Hola CARITO.SHOP! Hice un pedido:\n" + productosMsg + "\nTotal: $" + totalP.toLocaleString("es-AR") + "\nNombre: " + form.nombre + "\nTel: " + form.telefono + "\nDirec: " + form.direccion;
+    const msg = "Hola CARITO.SHOP! Hice un pedido:\n" + productos + "\nTotal: $" + totalP.toLocaleString("es-AR") + "\nNombre: " + form.nombre + "\nTel: " + form.telefono + "\nDirec: " + form.direccion;
     window.open("https://wa.me/5491133851488?text=" + encodeURIComponent(msg), "_blank");
     setEnviando(false);
     setPedidoOk(true);
@@ -85,10 +76,6 @@ export default function Home() {
     setAbierto(false);
     setForm({ nombre: "", telefono: "", direccion: "" });
   };
-
-  const productosFiltrados = categoriaSeleccionada === "Todos" 
-    ? lista 
-    : lista.filter(p => p.categoria === categoriaSeleccionada);
 
   return (
     <main style={{ minHeight: "100vh", background: "#0a0a0a", fontFamily: "sans-serif" }}>
@@ -179,7 +166,7 @@ export default function Home() {
                     <span style={{ color: "#fff", fontWeight: 700 }}>Total</span>
                     <span style={{ color: "#ff2d78", fontSize: 20, fontWeight: 900 }}>{"$" + totalP.toLocaleString("es-AR")}</span>
                   </div>
-                  <button onClick={() => { setCheckout(true); }} style={{ width: "100%", padding: 13, background: "linear-gradient(135deg, #ff2d78, #ff0055)", border: "none", borderRadius: 12, color: "#fff", fontWeight: 800, cursor: "pointer", marginBottom: 8 }}>
+                  <button onClick={() => setCheckout(true)} style={{ width: "100%", padding: 13, background: "linear-gradient(135deg, #ff2d78, #ff0055)", border: "none", borderRadius: 12, color: "#fff", fontWeight: 800, cursor: "pointer", marginBottom: 8 }}>
                     Finalizar compra
                   </button>
                   <button onClick={wa} style={{ width: "100%", padding: 11, background: "transparent", border: "1px solid #25D366", borderRadius: 12, color: "#25D366", fontWeight: 700, cursor: "pointer" }}>
@@ -207,45 +194,35 @@ export default function Home() {
         <p style={{ color: "#ccc", fontSize: 17, marginBottom: 0 }}>Envios a todo el pais - Paga con MercadoPago</p>
       </section>
 
-      <section style={{ maxWidth: 1100, margin: "0 auto", padding: "50px 20px" }}>
-        
-        {/* Barra de Categorías Dinámicas e Inteligentes */}
-        <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 20, marginBottom: 20, WebkitOverflowScrolling: "touch" }}>
-          {categorias.map(cat => (
-            <button 
-              key={cat}
-              onClick={() => setCategoriaSeleccionada(cat)}
-              style={{
-                padding: "8px 16px",
-                borderRadius: 20,
-                border: categoriaSeleccionada === cat ? "1px solid #ff2d78" : "1px solid #333",
-                background: categoriaSeleccionada === cat ? "linear-gradient(135deg, #ff2d78, #ff0055)" : "#111",
-                color: "#fff",
-                fontWeight: 700,
-                fontSize: 14,
-                cursor: "pointer",
-                boxShadow: categoriaSeleccionada === cat ? "0 0 10px rgba(255,45,120,0.4)" : "none",
-                whiteSpace: "nowrap"
-              }}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
+      {/* FILTRO CATEGORIAS */}
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "20px 20px 0", display: "flex", gap: 10, overflowX: "auto", paddingBottom: 10 }}>
+        {categorias.map(cat => (
+          <button key={cat} onClick={() => setCategoriaActiva(cat)} style={{
+            padding: "8px 18px", borderRadius: 20, border: "none", cursor: "pointer",
+            background: categoriaActiva === cat ? "#ff2d78" : "#222",
+            color: categoriaActiva === cat ? "#fff" : "#888",
+            fontWeight: 700, fontSize: 13, whiteSpace: "nowrap", flexShrink: 0,
+            boxShadow: categoriaActiva === cat ? "0 0 10px rgba(255,45,120,0.5)" : "none",
+          }}>{cat}</button>
+        ))}
+      </div>
 
-        <h3 style={{ fontSize: 26, fontWeight: 900, marginBottom: 28, ...neon }}>Nuestros productos</h3>
+      <section style={{ maxWidth: 1100, margin: "0 auto", padding: "30px 20px 50px" }}>
+        <h3 style={{ fontSize: 22, fontWeight: 900, marginBottom: 20, ...neon }}>
+          {categoriaActiva === "Todos" ? "Nuestros productos" : categoriaActiva}
+        </h3>
         {cargando && <div style={{ textAlign: "center", color: "#ff2d78", padding: 60 }}>Cargando...</div>}
-        {!cargando && productosFiltrados.length === 0 && (
+        {!cargando && listaFiltrada.length === 0 && (
           <div style={{ textAlign: "center", color: "#555", padding: 60 }}>
             <div style={{ fontSize: 48 }}>🛍️</div>
             <div style={{ marginTop: 12 }}>No hay productos en esta categoria</div>
           </div>
         )}
-        {!cargando && productosFiltrados.length > 0 && (
+        {!cargando && listaFiltrada.length > 0 && (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 20 }}>
-            {productosFiltrados.map(p => (
+            {listaFiltrada.map(p => (
               <div key={p.id} style={{ background: "#111", border: "1px solid #ff2d78", borderRadius: 20, overflow: "hidden" }}>
-                <div style={{ height: 200, overflow: "hidden", borderBottom: "1px solid #ff2d78" }}>
+                <div style={{ height: 200, overflow: "hidden", borderBottom: "1px solid #ff2d78", position: "relative" }}>
                   {p.imagen ? (
                     <img src={p.imagen} alt={p.nombre} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                   ) : (
@@ -253,16 +230,28 @@ export default function Home() {
                       {p.emoji}
                     </div>
                   )}
+                  {p.stock <= 3 && p.stock > 0 && (
+                    <div style={{ position: "absolute", top: 10, right: 10, background: "#EF4444", color: "#fff", fontSize: 11, fontWeight: 700, padding: "4px 8px", borderRadius: 8 }}>
+                      Ultimas {p.stock} unidades
+                    </div>
+                  )}
                 </div>
                 <div style={{ padding: 18 }}>
-                  <div style={{ marginBottom: 8 }}><span style={{ fontSize: 11, background: "#222", color: "#ff2d78", padding: "4px 8px", borderRadius: 6, fontWeight: 700 }}>{p.categoria}</span></div>
+                  <div style={{ fontSize: 11, color: "#ff2d78", fontWeight: 600, marginBottom: 4 }}>{p.categoria}</div>
                   <h4 style={{ color: "#fff", fontWeight: 800, fontSize: 16, marginBottom: 6 }}>{p.nombre}</h4>
                   <p style={{ color: "#888", fontSize: 13, marginBottom: 12 }}>{p.descripcion}</p>
-                  <div style={{ marginBottom: 14 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
                     <span style={{ fontSize: 22, fontWeight: 900, color: "#ff2d78" }}>{"$" + p.precio.toLocaleString("es-AR")}</span>
+                    <span style={{ fontSize: 12, color: "#555" }}>{"Stock: " + p.stock}</span>
                   </div>
                   <button onClick={() => agregar(p)} style={{ width: "100%", padding: 12, background: "linear-gradient(135deg, #ff2d78, #ff0055)", border: "none", borderRadius: 12, color: "#fff", fontWeight: 800, cursor: "pointer", marginBottom: 8 }}>
                     Agregar al carrito
+                  </button>
+                  <button onClick={() => {
+                    const msg = "Hola CARITO.SHOP! Me interesa: " + p.nombre + " - $" + p.precio.toLocaleString("es-AR");
+                    window.open("https://wa.me/5491133851488?text=" + encodeURIComponent(msg), "_blank");
+                  }} style={{ width: "100%", padding: 10, background: "transparent", border: "1px solid #25D366", borderRadius: 12, color: "#25D366", fontWeight: 700, cursor: "pointer" }}>
+                    Consultar por WhatsApp
                   </button>
                 </div>
               </div>

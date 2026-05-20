@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../supabase";
 
-type Producto = { id: number; nombre: string; descripcion: string; precio: number; emoji: string; activo: boolean; imagen: string; categoria: string; };
+type Producto = { id: number; nombre: string; descripcion: string; precio: number; emoji: string; activo: boolean; imagen: string; categoria: string; stock: number; };
 type Categoria = { id: number; Nombre: string; };
 const CLAVE = "carito2026";
 
@@ -13,7 +13,7 @@ export default function Admin() {
   const [productos, setProductos] = useState<Producto[]>([]);
   const [listadoCategorias, setListadoCategorias] = useState<Categoria[]>([]);
   const [cargando, setCargando] = useState(false);
-  const [nuevo, setNuevo] = useState({ nombre: "", descripcion: "", precio: "", emoji: "🛍️", imagen: "", categoria: "" });
+  const [nuevo, setNuevo] = useState({ nombre: "", descripcion: "", precio: "", emoji: "🛍️", imagen: "", categoria: "", stock: "0" });
   const [nuevaCatNombre, setNuevaCatNombre] = useState("");
   const [toast, setToast] = useState("");
   const [subiendo, setSubiendo] = useState(false);
@@ -81,16 +81,30 @@ export default function Admin() {
       emoji: nuevo.emoji,
       imagen: nuevo.imagen,
       categoria: nuevo.categoria,
+      stock: parseInt(nuevo.stock) || 0,
       activo: true,
     });
     if (error) { mostrarToast("Error al guardar: " + error.message); return; }
     mostrarToast("Producto agregado");
-    setNuevo(prev => ({ ...prev, nombre: "", descripcion: "", precio: "", imagen: "" }));
+    setNuevo(prev => ({ ...prev, nombre: "", descripcion: "", precio: "", imagen: "", stock: "0" }));
     cargarTodo();
   };
 
   const toggleActivo = async (id: number, activo: boolean) => {
     await supabase.from("productos").update({ activo: !activo }).eq("id", id);
+    cargarTodo();
+  };
+
+  const eliminarProducto = async (id: number) => {
+    const { error } = await supabase.from("productos").delete().eq("id", id);
+    if (error) { mostrarToast("No se pudo eliminar"); return; }
+    mostrarToast("Producto eliminado");
+    cargarTodo();
+  };
+
+  const actualizarStock = async (id: number, stockActual: number, cambio: number) => {
+    const nuevoStock = Math.max(0, stockActual + cambio);
+    await supabase.from("productos").update({ stock: nuevoStock }).eq("id", id);
     cargarTodo();
   };
 
@@ -195,16 +209,24 @@ export default function Admin() {
               </select>
             </div>
             <div>
+              <div style={{ color: "#888", fontSize: 12, marginBottom: 6 }}>Stock inicial</div>
+              <input value={nuevo.stock} onChange={e => setNuevo(p => ({ ...p, stock: e.target.value }))}
+                placeholder="0" type="number"
+                style={{ width: "100%", padding: 10, borderRadius: 10, border: "1px solid #333", background: "#0a0a0a", color: "#fff", fontSize: 13, boxSizing: "border-box" }} />
+            </div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+            <div>
               <div style={{ color: "#888", fontSize: 12, marginBottom: 6 }}>Emoji</div>
               <input value={nuevo.emoji} onChange={e => setNuevo(p => ({ ...p, emoji: e.target.value }))}
                 placeholder="🛍️"
                 style={{ width: "100%", padding: 10, borderRadius: 10, border: "1px solid #333", background: "#0a0a0a", color: "#fff", fontSize: 20, boxSizing: "border-box" }} />
             </div>
-          </div>
-          <div style={{ marginBottom: 12 }}>
-            <div style={{ color: "#888", fontSize: 12, marginBottom: 6 }}>Foto</div>
-            <input type="file" accept="image/*" onChange={e => e.target.files && subirFoto(e.target.files[0])}
-              style={{ width: "100%", padding: 8, borderRadius: 10, border: "1px solid #333", background: "#0a0a0a", color: "#888", fontSize: 12, boxSizing: "border-box" }} />
+            <div>
+              <div style={{ color: "#888", fontSize: 12, marginBottom: 6 }}>Foto</div>
+              <input type="file" accept="image/*" onChange={e => e.target.files && subirFoto(e.target.files[0])}
+                style={{ width: "100%", padding: 8, borderRadius: 10, border: "1px solid #333", background: "#0a0a0a", color: "#888", fontSize: 12, boxSizing: "border-box" }} />
+            </div>
           </div>
           {nuevo.imagen && (
             <div style={{ marginBottom: 12 }}>
@@ -230,16 +252,30 @@ export default function Admin() {
               <div style={{ flex: 1 }}>
                 <div style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>{p.nombre}</div>
                 <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 4 }}>
-                  <div style={{ color: "#ff2d78", fontWeight: 800, fontSize: 15 }}>{"$" + p.precio.toLocaleString("es-AR")}</div>
+                  <div style={{ color: "#ff2d78", fontWeight: 800, fontSize: 14 }}>{"$" + p.precio.toLocaleString("es-AR")}</div>
                   <span style={{ fontSize: 10, background: "#222", color: "#aaa", padding: "2px 6px", borderRadius: 4 }}>{p.categoria || "Sin cat."}</span>
                 </div>
+                {/* CONTROL DE STOCK */}
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
+                  <button onClick={() => actualizarStock(p.id, p.stock, -1)} style={{ background: "#333", border: "none", color: "#fff", borderRadius: 6, width: 24, height: 24, cursor: "pointer", fontWeight: 800, fontSize: 14 }}>-</button>
+                  <span style={{ color: "#fff", fontSize: 13, fontWeight: 600 }}>{"Stock: " + (p.stock || 0)}</span>
+                  <button onClick={() => actualizarStock(p.id, p.stock, 1)} style={{ background: "#333", border: "none", color: "#fff", borderRadius: 6, width: 24, height: 24, cursor: "pointer", fontWeight: 800, fontSize: 14 }}>+</button>
+                </div>
               </div>
-              <button onClick={() => toggleActivo(p.id, p.activo)} style={{
-                padding: "6px 14px", borderRadius: 8, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12,
-                background: p.activo ? "#10B981" : "#374151", color: "#fff",
-              }}>
-                {p.activo ? "Activo" : "Inactivo"}
-              </button>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <button onClick={() => toggleActivo(p.id, p.activo)} style={{
+                  padding: "6px 10px", borderRadius: 8, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 11,
+                  background: p.activo ? "#10B981" : "#374151", color: "#fff",
+                }}>
+                  {p.activo ? "Activo" : "Inactivo"}
+                </button>
+                <button onClick={() => eliminarProducto(p.id)} style={{
+                  padding: "6px 10px", borderRadius: 8, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 11,
+                  background: "#7F1D1D", color: "#fff",
+                }}>
+                  Eliminar
+                </button>
+              </div>
             </div>
           ))}
         </div>
