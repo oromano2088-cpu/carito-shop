@@ -2,7 +2,21 @@
 import { useState, useEffect } from "react";
 import { supabase } from "./supabase";
 
-type Producto = { id: number; nombre: string; descripcion: string; precio: number; emoji: string; activo: boolean; imagen: string; imagen2: string; imagen3: string; categoria: string; stock: number; };
+type Producto = { 
+  id: number; 
+  nombre: string; 
+  descripcion: string; 
+  precio: number; 
+  precio_oferta: number | null; 
+  oferta_hasta: string | null; 
+  emoji: string; 
+  activo: boolean; 
+  imagen: string; 
+  imagen2: string; 
+  imagen3: string; 
+  categoria: string; 
+  stock: number; 
+};
 type Item = Producto & { cantidad: number };
 const neon = { color: "#ff2d78", textShadow: "0 0 10px #ff2d78" };
 
@@ -24,8 +38,35 @@ export default function Home() {
   const [categorias, setCategorias] = useState<string[]>([]);
   const [visor, setVisor] = useState<{ imagenes: string[]; indice: number } | null>(null);
   const [indicesProducto, setIndicesProducto] = useState<{ [id: number]: number }>({});
+  
+  const [ofertaActiva, setOfertaActiva] = useState<Producto | null>(null);
+  const [tiempoRestante, setTiempoRestante] = useState({ dias: 0, horas: 0, minutes: 0, segundos: 0 });
 
   useEffect(() => { init(); }, []);
+
+  useEffect(() => {
+    if (!ofertaActiva || !ofertaActiva.oferta_hasta) return;
+
+    const intervalo = setInterval(() => {
+      const ahora = new Date().getTime();
+      const limite = new Date(ofertaActiva.oferta_hasta!).getTime();
+      const distancia = limite - ahora;
+
+      if (distancia < 0) {
+        clearInterval(intervalo);
+        setOfertaActiva(null);
+      } else {
+        setTiempoRestante({
+          dias: Math.floor(distancia / (1000 * 60 * 60 * 24)),
+          horas: Math.floor((distancia % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+          minutes: Math.floor((distancia % (1000 * 60 * 60)) / (1000 * 60)),
+          segundos: Math.floor((distancia % (1000 * 60)) / 1000)
+        });
+      }
+    }, 1000);
+
+    return () => clearInterval(intervalo);
+  }, [ofertaActiva]);
 
   const init = async () => {
     const { data } = await supabase.from("productos").select("*").eq("activo", true).gt("stock", 0);
@@ -33,6 +74,12 @@ export default function Home() {
       setLista(data);
       const cats = ["Todos", ...Array.from(new Set(data.map((p: Producto) => p.categoria).filter(Boolean)))];
       setCategorias(cats);
+
+      const ahoraIso = new Date().toISOString();
+      const enOferta = data.find((p: Producto) => p.precio_oferta && p.oferta_hasta && p.oferta_hasta > ahoraIso);
+      if (enOferta) {
+        setOfertaActiva(enOferta);
+      }
     }
     setCargando(false);
   };
@@ -54,15 +101,23 @@ export default function Home() {
 
   const quitar = (id: number) => setCarrito(prev => prev.filter(i => i.id !== id));
   const totalU = carrito.reduce((s, i) => s + i.cantidad, 0);
-  const totalP = carrito.reduce((s, i) => s + i.precio * i.cantidad, 0);
+  
+  const totalP = carrito.reduce((s, i) => {
+    const precioFinal = i.precio_oferta && i.oferta_hasta && new Date(i.oferta_hasta).getTime() > new Date().getTime() ? i.precio_oferta : i.precio;
+    return s + (precioFinal * i.cantidad);
+  }, 0);
 
   const wa = () => {
-    const msg = "Hola CARITO.SHOP!\n" + carrito.map(i => i.nombre + " x" + i.cantidad).join("\n") + "\nTotal: $" + totalP.toLocaleString("es-AR");
+    const msg = "Hola CARITO.SHOP!\n" + carrito.map(i => {
+      const pFinal = i.precio_oferta && i.oferta_hasta && new Date(i.oferta_hasta).getTime() > new Date().getTime() ? i.precio_oferta : i.precio;
+      return i.nombre + " x" + i.cantidad + " ($" + pFinal.toLocaleString("es-AR") + ")";
+    }).join("\n") + "\nTotal: $" + totalP.toLocaleString("es-AR");
     window.open("https://wa.me/5491133851488?text=" + encodeURIComponent(msg), "_blank");
   };
 
   const compartirProducto = (p: Producto) => {
-    const msg = "Mira este producto de CARITO.SHOP!\n\n" + p.nombre + "\n$" + p.precio.toLocaleString("es-AR") + "\n\n" + p.descripcion + "\n\nCompralo en: carito-shop.vercel.app";
+    const pFinal = p.precio_oferta && p.oferta_hasta && new Date(p.oferta_hasta).getTime() > new Date().getTime() ? p.precio_oferta : p.precio;
+    const msg = "Mira este producto de CARITO.SHOP!\n\n" + p.nombre + "\n$" + pFinal.toLocaleString("es-AR") + "\n\n" + p.descripcion + "\n\nCompralo en: carito-shop.vercel.app";
     window.open("https://wa.me/?text=" + encodeURIComponent(msg), "_blank");
   };
 
@@ -192,17 +247,21 @@ export default function Home() {
             {carrito.length > 0 && (
               <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
                 <div style={{ flex: 1, overflowY: "auto" }}>
-                  {carrito.map(item => (
-                    <div key={item.id} style={{ display: "flex", gap: 10, alignItems: "center", padding: "12px 0", borderBottom: "1px solid #222" }}>
-                      <span style={{ fontSize: 28 }}>{item.emoji}</span>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ color: "#fff", fontWeight: 700, fontSize: 13 }}>{item.nombre}</div>
-                        <div style={{ color: "#ff2d78", fontWeight: 800 }}>{"$" + (item.precio * item.cantidad).toLocaleString("es-AR")}</div>
-                        <div style={{ color: "#555", fontSize: 12 }}>{"x" + item.cantidad}</div>
+                  {carrito.map(item => {
+                    const esFlash = item.precio_oferta && item.oferta_hasta && new Date(item.oferta_hasta).getTime() > new Date().getTime();
+                    const pItem = esFlash ? item.precio_oferta! : item.precio;
+                    return (
+                      <div key={item.id} style={{ display: "flex", gap: 10, alignItems: "center", padding: "12px 0", borderBottom: "1px solid #222" }}>
+                        <span style={{ fontSize: 28 }}>{item.emoji}</span>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ color: "#fff", fontWeight: 700, fontSize: 13 }}>{item.nombre}</div>
+                          <div style={{ color: "#ff2d78", fontWeight: 800 }}>{"$" + (pItem * item.cantidad).toLocaleString("es-AR")}</div>
+                          <div style={{ color: "#555", fontSize: 12 }}>{"x" + item.cantidad}</div>
+                        </div>
+                        <button onClick={() => quitar(item.id)} style={{ background: "none", border: "none", color: "#ff2d78", cursor: "pointer", fontSize: 16 }}>X</button>
                       </div>
-                      <button onClick={() => quitar(item.id)} style={{ background: "none", border: "none", color: "#ff2d78", cursor: "pointer", fontSize: 16 }}>X</button>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 <div style={{ borderTop: "1px solid #ff2d78", paddingTop: 16, marginTop: 16 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 14 }}>
@@ -233,13 +292,32 @@ export default function Home() {
       </header>
 
       <section style={{ background: "linear-gradient(135deg, #1a0010 0%, #0a0a0a 50%, #1a0010 100%)", textAlign: "center", padding: "50px 20px", borderBottom: "1px solid #ff2d78" }}>
-  <img
-    src="https://acjufczrwyztsmzmljdk.supabase.co/storage/v1/object/public/productos/icono.ico.jpg"
-    alt="CARITO.SHOP"
-    style={{ width: 220, maxWidth: "80%", marginBottom: 16, borderRadius: 16, display: "block", margin: "0 auto 16px auto" }}
-  />
-  <p style={{ color: "#ccc", fontSize: 17, marginBottom: 0 }}>Envios a todo el pais - Paga con MercadoPago</p>
-</section>
+        <img
+          src="https://acjufczrwyztsmzmljdk.supabase.co/storage/v1/object/public/productos/icono.ico.jpg"
+          alt="CARITO.SHOP"
+          style={{ width: 220, maxWidth: "80%", marginBottom: 16, borderRadius: 16, display: "block", margin: "0 auto 16px auto" }}
+        />
+        <p style={{ color: "#ccc", fontSize: 17, marginBottom: 0 }}>Envios a todo el pais - Paga con MercadoPago</p>
+      </section>
+
+      {/* BANNER DINÁMICO CORREGIDO */}
+      {ofertaActiva && (
+        <div style={{ background: "linear-gradient(90deg, #220011, #450a26, #220011)", borderBottom: "1px dashed #ff2d78", padding: "16px 20px", textAlign: "center" }}>
+          <div style={{ maxWidth: 600, margin: "0 auto" }}>
+            <span style={{ background: "#ff2d78", color: "#fff", padding: "3px 8px", borderRadius: 6, fontSize: 11, fontWeight: 800, verticalAlign: "middle", marginRight: 8 }}>OFERTA FLASH</span>
+            <span style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>¡{ofertaActiva.nombre} con súper descuento! ⚡</span>
+            
+            <div style={{ display: "flex", justifyContent: "center", gap: 12, marginTop: 10 }}>
+              {[{ v: tiempoRestante.dias, l: "d" }, { v: tiempoRestante.horas, l: "h" }, { v: tiempoRestante.minutes, l: "m" }, { v: tiempoRestante.segundos, l: "s" }].map((t, idx) => (
+                <div key={idx} style={{ background: "#0a0a0a", border: "1px solid #ff2d78", borderRadius: 8, minWidth: 44, padding: "4px 6px", boxShadow: "0 0 5px rgba(255,45,120,0.3)" }}>
+                  <div style={{ color: "#fff", fontWeight: 900, fontSize: 16 }}>{String(t.v).padStart(2, "0")}</div>
+                  <div style={{ color: "#555", fontSize: 9, textTransform: "uppercase", fontWeight: 700 }}>{t.l}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "20px 20px 0", display: "flex", gap: 10, overflowX: "auto", paddingBottom: 10 }}>
         {categorias.map(cat => (
@@ -249,7 +327,9 @@ export default function Home() {
             color: categoriaActiva === cat ? "#fff" : "#888",
             fontWeight: 700, fontSize: 13, whiteSpace: "nowrap", flexShrink: 0,
             boxShadow: categoriaActiva === cat ? "0 0 10px rgba(255,45,120,0.5)" : "none",
-          }}>{cat}</button>
+          }}>
+            {cat}
+          </button>
         ))}
       </div>
 
@@ -269,6 +349,10 @@ export default function Home() {
             {listaFiltrada.map(p => {
               const imagenes = getImagenes(p);
               const indice = indicesProducto[p.id] || 0;
+              
+              const esOfertaVigente = p.precio_oferta && p.oferta_hasta && new Date(p.oferta_hasta).getTime() > new Date().getTime();
+              const precioMostrar = esOfertaVigente ? p.precio_oferta! : p.precio;
+
               return (
                 <div key={p.id} style={{ background: "#111", border: "1px solid #ff2d78", borderRadius: 20, overflow: "hidden" }}>
                   {/* GALERIA DE IMAGENES */}
@@ -305,9 +389,15 @@ export default function Home() {
                         {p.emoji}
                       </div>
                     )}
+                    {/* CONDICIONAL DE STOCK CORREGIDO */}
                     {p.stock <= 3 && p.stock > 0 && (
                       <div style={{ position: "absolute", top: 8, left: 8, background: "#EF4444", color: "#fff", fontSize: 11, fontWeight: 700, padding: "4px 8px", borderRadius: 8 }}>
                         Ultimas {p.stock} unidades
+                      </div>
+                    )}
+                    {esOfertaVigente && (
+                      <div style={{ position: "absolute", bottom: 8, left: 8, background: "#ff2d78", color: "#fff", fontSize: 10, fontWeight: 800, padding: "4px 8px", borderRadius: 6, boxShadow: "0 0 10px #ff2d78" }}>
+                        ⚡ OFERTA
                       </div>
                     )}
                   </div>
@@ -316,15 +406,26 @@ export default function Home() {
                     <div style={{ fontSize: 11, color: "#ff2d78", fontWeight: 600, marginBottom: 4 }}>{p.categoria}</div>
                     <h4 style={{ color: "#fff", fontWeight: 800, fontSize: 16, marginBottom: 6 }}>{p.nombre}</h4>
                     <p style={{ color: "#888", fontSize: 13, marginBottom: 12 }}>{p.descripcion}</p>
+                    
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                      <span style={{ fontSize: 22, fontWeight: 900, color: "#ff2d78" }}>{"$" + p.precio.toLocaleString("es-AR")}</span>
+                      <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                        <span style={{ fontSize: 22, fontWeight: 900, color: "#ff2d78" }}>
+                          {"$" + precioMostrar.toLocaleString("es-AR")}
+                        </span>
+                        {esOfertaVigente && (
+                          <span style={{ fontSize: 13, color: "#555", textDecoration: "line-through" }}>
+                            {"$" + p.precio.toLocaleString("es-AR")}
+                          </span>
+                        )}
+                      </div>
                       <span style={{ fontSize: 12, color: "#555" }}>{"Stock: " + p.stock}</span>
                     </div>
+
                     <button onClick={() => agregar(p)} style={{ width: "100%", padding: 12, background: "linear-gradient(135deg, #ff2d78, #ff0055)", border: "none", borderRadius: 12, color: "#fff", fontWeight: 800, cursor: "pointer", marginBottom: 8 }}>
                       Agregar al carrito
                     </button>
                     <button onClick={() => {
-                      const msg = "Hola CARITO.SHOP! Me interesa: " + p.nombre + " - $" + p.precio.toLocaleString("es-AR");
+                      const msg = "Hola CARITO.SHOP! Me interesa: " + p.nombre + " - $" + precioMostrar.toLocaleString("es-AR");
                       window.open("https://wa.me/5491133851488?text=" + encodeURIComponent(msg), "_blank");
                     }} style={{ width: "100%", padding: 10, background: "transparent", border: "1px solid #25D366", borderRadius: 12, color: "#25D366", fontWeight: 700, cursor: "pointer", marginBottom: 8 }}>
                       💬 Consultar por WhatsApp
