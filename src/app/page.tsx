@@ -42,6 +42,9 @@ export default function Home() {
   const [ofertaActiva, setOfertaActiva] = useState<Producto | null>(null);
   const [tiempoRestante, setTiempoRestante] = useState({ dias: 0, horas: 0, minutes: 0, segundos: 0 });
 
+  // ESTADO PARA EL BUSCADOR
+  const [busqueda, setBusqueda] = useState("");
+
   useEffect(() => { init(); }, []);
 
   useEffect(() => {
@@ -85,7 +88,6 @@ export default function Home() {
       const otrasCats = Array.from(new Set(data.map((p: Producto) => p.categoria).filter(Boolean))) as string[];
       setCategorias([...baseCats, ...otrasCats]);
 
-      // CONTROL DE DEEP LINKING Y SCROLL AUTOMÁTICO
       if (typeof window !== "undefined") {
         const params = new URLSearchParams(window.location.search);
         const productoIdStr = params.get("id");
@@ -93,7 +95,6 @@ export default function Home() {
           const prodId = parseInt(productoIdStr);
           const encontrado = data.find((p: Producto) => p.id === prodId);
           if (encontrado) {
-            // Hacemos scroll suave hacia el contenedor del producto después de que se monte el DOM
             setTimeout(() => {
               const elemento = document.getElementById(`producto-${prodId}`);
               if (elemento) {
@@ -107,13 +108,25 @@ export default function Home() {
     setCargando(false);
   };
 
+  // LÓGICA FILTRADA UNIFICADA
   const listaFiltrada = (() => {
-    if (categoriaActiva === "Todos") return lista;
+    let productosFiltrados = lista;
+
     if (categoriaActiva === "⚡ Ofertas Flash") {
       const ahoraIso = new Date().toISOString();
-      return lista.filter(p => p.precio_oferta && p.oferta_hasta && p.oferta_hasta > ahoraIso);
+      productosFiltrados = lista.filter(p => p.precio_oferta && p.oferta_hasta && p.oferta_hasta > ahoraIso);
+    } else if (categoriaActiva !== "Todos") {
+      productosFiltrados = lista.filter(p => p.categoria === categoriaActiva);
     }
-    return lista.filter(p => p.categoria === categoriaActiva);
+
+    if (busqueda.trim() !== "") {
+      const query = busqueda.toLowerCase();
+      productosFiltrados = productosFiltrados.filter(
+        p => p.nombre.toLowerCase().includes(query) || p.descripcion.toLowerCase().includes(query)
+      );
+    }
+
+    return productosFiltrados;
   })();
 
   const agregar = (p: Producto) => {
@@ -383,6 +396,7 @@ export default function Home() {
         </div>
       )}
 
+      {/* CATEGORÍAS (CORREGIDO) */}
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "20px 20px 0", display: "flex", gap: 10, overflowX: "auto", paddingBottom: 10 }}>
         {categorias.map(cat => (
           <button key={cat} onClick={() => setCategoriaActiva(cat)} style={{
@@ -397,15 +411,48 @@ export default function Home() {
         ))}
       </div>
 
-      <section style={{ maxWidth: 1100, margin: "0 auto", padding: "30px 20px 50px" }}>
+      {/* BUSCADOR NEÓN */}
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "15px 20px 0" }}>
+        <div style={{ position: "relative", width: "100%" }}>
+          <span style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", fontSize: 16, color: "#ff2d78" }}>🔍</span>
+          <input 
+            type="text"
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="¿Qué estás buscando hoy?..."
+            style={{ 
+              width: "100%", 
+              padding: "12px 12px 12px 42px", 
+              borderRadius: 14, 
+              border: "1px solid #ff2d78", 
+              background: "#111", 
+              color: "#fff", 
+              fontSize: 14, 
+              boxSizing: "border-box",
+              outline: "none",
+              boxShadow: "0 0 8px rgba(255,45,120,0.2)"
+            }}
+          />
+          {busqueda !== "" && (
+            <button 
+              onClick={() => setBusqueda("")}
+              style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: "#555", fontSize: 14, cursor: "pointer" }}
+            >
+              ✕
+            </button>
+          )}
+        </div>
+      </div>
+
+      <section style={{ maxWidth: 1100, margin: "0 auto", padding: "20px 20px 50px" }}>
         <h3 style={{ fontSize: 22, fontWeight: 900, marginBottom: 20, ...neon }}>
-          {categoriaActiva}
+          {busqueda.trim() !== "" ? `Resultados para: "${busqueda}"` : (categoriaActiva === "Todos" ? "Nuestros productos" : categoriaActiva)}
         </h3>
         {cargando && <div style={{ textAlign: "center", color: "#ff2d78", padding: 60 }}>Cargando...</div>}
         {!cargando && listaFiltrada.length === 0 && (
           <div style={{ textAlign: "center", color: "#555", padding: 60 }}>
             <div style={{ fontSize: 48 }}>🛍️</div>
-            <div style={{ marginTop: 12 }}>No hay productos en esta categoria</div>
+            <div style={{ marginTop: 12 }}>No se encontraron productos que coincidan</div>
           </div>
         )}
         {!cargando && listaFiltrada.length > 0 && (
@@ -418,7 +465,6 @@ export default function Home() {
               const precioMostrar = esOfertaVigente ? p.precio_oferta! : p.precio;
 
               return (
-                /* CAMBIO CLAVE: Se añade el ID único a cada contenedor de producto */
                 <div id={`producto-${p.id}`} key={p.id} style={{ background: "#111", border: "1px solid #ff2d78", borderRadius: 20, overflow: "hidden", scrollMarginTop: "90px" }}>
                   {/* GALERIA DE IMAGENES */}
                   <div style={{ height: 220, position: "relative", background: "#0a0a0a", borderBottom: "1px solid #ff2d78" }}>
@@ -465,7 +511,7 @@ export default function Home() {
                       </div>
                     )}
 
-                    {/* ÍCONO DE COMPARTIR NEÓN CON ENLACE PROFUNDO (?id=X) */}
+                    {/* ÍCONO DE COMPARTIR NEÓN */}
                     <div 
                       onClick={(e) => { e.stopPropagation(); compartirProducto(p); }}
                       style={{ 
@@ -488,9 +534,7 @@ export default function Home() {
                       title="Compartir producto"
                     >
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M18 16.08C17.24 16.08 16.56 16.38 16.04 16.85L8.91 12.7C8.96 12.47 9 12.24 9 12C9 11.76 8.96 11.53 8.91 11.3L15.96 7.19C16.5 7.69 17.21 8 18 8C19.66 8 21 6.66 21 5C21 3.34 19.66 2 18 2C16.34 2 15 3.34 15 5C15 5.24 15.04 5.47 15.09 5.7L8.04 9.81C7.5 9.31 6.79 9 6 9C4.34 9 3 10.34 3 12C3 13.66 4.34 15 6 15C6.79 15 7.5 14.69 8.04 14.19L15.16 18.35C15.11 18.56 15.08 18.78 15.08 19C15.08 20.61 16.39 21.92 18 21.92C19.61 21.92 20.92 20.61 20.92 19
-
-C20.92 17.39 19.61 16.08 18 16.08Z" fill="#ff2d78" style={{ filter: "drop-shadow(0 0 3px #ff2d78)" }}/>
+                        <path d="M18 16.08C17.24 16.08 16.56 16.38 16.04 16.85L8.91 12.7C8.96 12.47 9 12.24 9 12C9 11.76 8.96 11.53 8.91 11.3L15.96 7.19C16.5 7.69 17.21 8 18 8C19.66 8 21 6.66 21 5C21 3.34 19.66 2 18 2C16.34 2 15 3.34 15 5C15 5.24 15.04 5.47 15.09 5.7L8.04 9.81C7.5 9.31 6.79 9 6 9C4.34 9 3 10.34 3 12C3 13.66 4.34 15 6 15C6.79 15 7.5 14.69 8.04 14.19L15.16 18.35C15.11 18.56 15.08 18.78 15.08 19C15.08 20.61 16.39 21.92 18 21.92C19.61 21.92 20.92 20.61 20.92 19C20.92 17.39 19.61 16.08 18 16.08Z" fill="#ff2d78" style={{ filter: "drop-shadow(0 0 3px #ff2d78)" }}/>
                       </svg>
                     </div>
                   </div>
