@@ -232,10 +232,14 @@ export default function Home() {
         </div>
       </header>
 
-      <section style={{ background: "linear-gradient(135deg, #1a0010 0%, #0a0a0a 50%, #1a0010 100%)", textAlign: "center", padding: "70px 20px", borderBottom: "1px solid #ff2d78" }}>
-        <h2 style={{ fontSize: 40, fontWeight: 900, marginBottom: 12, ...neon, fontFamily: "Georgia, serif" }}>Tu tienda favorita</h2>
-        <p style={{ color: "#ccc", fontSize: 17, marginBottom: 0 }}>Envios a todo el pais - Paga con MercadoPago</p>
-      </section>
+      <section style={{ background: "linear-gradient(135deg, #1a0010 0%, #0a0a0a 50%, #1a0010 100%)", textAlign: "center", padding: "50px 20px", borderBottom: "1px solid #ff2d78" }}>
+  <img
+    src="https://acjufczrwyztsmzmljdk.supabase.co/storage/v1/object/public/productos/icono.ico.jpg"
+    alt="CARITO.SHOP"
+    style={{ width: 220, maxWidth: "80%", marginBottom: 16, borderRadius: 16 }}
+  />
+  <p style={{ color: "#ccc", fontSize: 17, marginBottom: 0 }}>Envios a todo el pais - Paga con MercadoPago</p>
+</section>
 
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "20px 20px 0", display: "flex", gap: 10, overflowX: "auto", paddingBottom: 10 }}>
         {categorias.map(cat => (
