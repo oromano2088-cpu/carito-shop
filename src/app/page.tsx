@@ -84,6 +84,21 @@ export default function Home() {
       
       const otrasCats = Array.from(new Set(data.map((p: Producto) => p.categoria).filter(Boolean))) as string[];
       setCategorias([...baseCats, ...otrasCats]);
+
+      if (typeof window !== "undefined") {
+        const params = new URLSearchParams(window.location.search);
+        const productoIdStr = params.get("id");
+        if (productoIdStr) {
+          const prodId = parseInt(productoIdStr);
+          const encontrado = data.find((p: Producto) => p.id === prodId);
+          if (encontrado) {
+            const imgs = getImagenes(encontrado);
+            if (imgs.length > 0) {
+              setVisor({ imagenes: imgs, indice: 0 });
+            }
+          }
+        }
+      }
     }
     setCargando(false);
   };
@@ -128,7 +143,8 @@ export default function Home() {
 
   const compartirProducto = (p: Producto) => {
     const pFinal = p.precio_oferta && p.oferta_hasta && new Date(p.oferta_hasta).getTime() > new Date().getTime() ? p.precio_oferta : p.precio;
-    const msg = "Mira este producto de CARITO.SHOP!\n\n" + p.nombre + "\n$" + pFinal.toLocaleString("es-AR") + "\n\n" + p.descripcion + "\n\nCompralo en: carito-shop.vercel.app";
+    const linkProducto = `https://carito-shop.vercel.app/?id=${p.id}`;
+    const msg = `Mira este producto de CARITO.SHOP!\n\n${p.nombre}\n$${pFinal.toLocaleString("es-AR")}\n\n${p.descripcion}\n\nVer producto directo en la app: ${linkProducto}`;
     window.open("https://wa.me/?text=" + encodeURIComponent(msg), "_blank");
   };
 
@@ -444,7 +460,7 @@ export default function Home() {
                       </div>
                     )}
 
-                    {/* NUEVO ÍCONO DE COMPARTIR NEÓN (UBICACIÓN CORREGIDA) */}
+                    {/* ÍCONO DE COMPARTIR NEÓN CON ENLACE PROFUNDO (?id=X) */}
                     <div 
                       onClick={(e) => { e.stopPropagation(); compartirProducto(p); }}
                       style={{ 
@@ -462,7 +478,7 @@ export default function Home() {
                         cursor: "pointer", 
                         boxShadow: "0 0 15px rgba(255,45,120,0.5)",
                         transition: "all 0.3s ease",
-                        zIndex: 10 // Para asegurar que esté por encima de otros elementos
+                        zIndex: 10
                       }}
                       title="Compartir producto"
                     >
@@ -500,8 +516,6 @@ export default function Home() {
                     }} style={{ width: "100%", padding: 10, background: "transparent", border: "1px solid #25D366", borderRadius: 12, color: "#25D366", fontWeight: 700, cursor: "pointer", marginBottom: 8 }}>
                       💬 Consultar por WhatsApp
                     </button>
-                    
-                    {/* EL BOTÓN DE TEXTO ANTERIOR HA SIDO ELIMINADO DE AQUÍ */}
                   </div>
                 </div>
               );
