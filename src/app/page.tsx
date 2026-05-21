@@ -72,19 +72,34 @@ export default function Home() {
     const { data } = await supabase.from("productos").select("*").eq("activo", true).gt("stock", 0);
     if (data) {
       setLista(data);
-      const cats = ["Todos", ...Array.from(new Set(data.map((p: Producto) => p.categoria).filter(Boolean)))];
-      setCategorias(cats);
-
+      
       const ahoraIso = new Date().toISOString();
-      const enOferta = data.find((p: Producto) => p.precio_oferta && p.oferta_hasta && p.oferta_hasta > ahoraIso);
-      if (enOferta) {
-        setOfertaActiva(enOferta);
+      
+      // Filtrar todos los productos que tienen oferta flash válida actualmente
+      const ofertasVigentes = data.filter((p: Producto) => p.precio_oferta && p.oferta_hasta && p.oferta_hasta > ahoraIso);
+      
+      // Construir las categorías dinámicas incluyendo la carpeta especial de ofertas si existen
+      const baseCats = ["Todos"];
+      if (ofertasVigentes.length > 0) {
+        baseCats.push("⚡ Ofertas Flash");
+        setOfertaActiva(ofertasVigentes[0]); // El reloj principal toma el primer producto en oferta
       }
+      
+      const otrasCats = Array.from(new Set(data.map((p: Producto) => p.categoria).filter(Boolean))) as string[];
+      setCategorias([...baseCats, ...otrasCats]);
     }
     setCargando(false);
   };
 
-  const listaFiltrada = categoriaActiva === "Todos" ? lista : lista.filter(p => p.categoria === categoriaActiva);
+  // LÓGICA DE FILTRADO PARA LA NUEVA CATEGORÍA DE OFERTAS FLASH
+  const listaFiltrada = (() => {
+    if (categoriaActiva === "Todos") return lista;
+    if (categoriaActiva === "⚡ Ofertas Flash") {
+      const ahoraIso = new Date().toISOString();
+      return lista.filter(p => p.precio_oferta && p.oferta_hasta && p.oferta_hasta > ahoraIso);
+    }
+    return lista.filter(p => p.categoria === categoriaActiva);
+  })();
 
   const agregar = (p: Producto) => {
     const enCarrito = carrito.find(i => i.id === p.id);
@@ -324,12 +339,22 @@ export default function Home() {
         <p style={{ color: "#ccc", fontSize: 17, marginBottom: 0 }}>Envios a todo el pais - Paga con MercadoPago</p>
       </section>
 
-      {/* BANNER DINÁMICO DE OFERTA FLASH */}
+      {/* BANNER CLICKEABLE DE OFERTA FLASH */}
       {ofertaActiva && (
-        <div style={{ background: "linear-gradient(90deg, #220011, #450a26, #220011)", borderBottom: "1px dashed #ff2d78", padding: "16px 20px", textAlign: "center" }}>
+        <div 
+          onClick={() => setCategoriaActiva("⚡ Ofertas Flash")}
+          style={{ 
+            background: "linear-gradient(90deg, #220011, #450a26, #220011)", 
+            borderBottom: "1px dashed #ff2d78", 
+            padding: "16px 20px", 
+            textAlign: "center",
+            cursor: "pointer",
+            transition: "all 0.3s ease"
+          }}
+        >
           <div style={{ maxWidth: 600, margin: "0 auto" }}>
             <span style={{ background: "#ff2d78", color: "#fff", padding: "3px 8px", borderRadius: 6, fontSize: 11, fontWeight: 800, verticalAlign: "middle", marginRight: 8 }}>OFERTA FLASH</span>
-            <span style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>¡{ofertaActiva.nombre} con súper descuento! ⚡</span>
+            <span style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>¡Tocá acá para ver todos los descuentos activos! ⚡</span>
             
             <div style={{ display: "flex", justifyContent: "center", gap: 12, marginTop: 10 }}>
               {[{ v: tiempoRestante.dias, l: "d" }, { v: tiempoRestante.horas, l: "h" }, { v: tiempoRestante.minutes, l: "m" }, { v: tiempoRestante.segundos, l: "s" }].map((t, idx) => (
@@ -359,13 +384,13 @@ export default function Home() {
 
       <section style={{ maxWidth: 1100, margin: "0 auto", padding: "30px 20px 50px" }}>
         <h3 style={{ fontSize: 22, fontWeight: 900, marginBottom: 20, ...neon }}>
-          {categoriaActiva === "Todos" ? "Nuestros productos" : categoriaActiva}
+          {categoriaActiva}
         </h3>
         {cargando && <div style={{ textAlign: "center", color: "#ff2d78", padding: 60 }}>Cargando...</div>}
         {!cargando && listaFiltrada.length === 0 && (
           <div style={{ textAlign: "center", color: "#555", padding: 60 }}>
             <div style={{ fontSize: 48 }}>🛍️</div>
-            <div style={{ marginTop: 12 }}>No hay productos en esta categoria</div>
+            <div style={{ marginTop: 12 }}>No hay ofertas flash activas en este momento</div>
           </div>
         )}
         {!cargando && listaFiltrada.length > 0 && (
