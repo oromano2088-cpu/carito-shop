@@ -154,6 +154,30 @@ export default function Home() {
   return (
     <main style={{ minHeight: "100vh", background: "#0a0a0a", fontFamily: "sans-serif" }}>
 
+      {/* BOTON ADMIN SUPERIOR CENTRADO */}
+      <div style={{ 
+        width: "100%", 
+        textAlign: "center", 
+        background: "#050505", 
+        borderBottom: "1px solid #111", 
+        padding: "6px 0" 
+      }}>
+        <a href="/admin" style={{ 
+          display: "inline-block", 
+          padding: "4px 12px", 
+          borderRadius: 6, 
+          border: "1px solid #222", 
+          background: "#0a0a0a", 
+          color: "#ff2d78", 
+          textDecoration: "none", 
+          fontSize: 11, 
+          fontWeight: 700,
+          boxShadow: "0 0 5px rgba(255,45,120,0.1)"
+        }}>
+          🔒 Panel Admin
+        </a>
+      </div>
+
       {/* VISOR PANTALLA COMPLETA */}
       {visor && (
         <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.97)", display: "flex", alignItems: "center", justifyContent: "center" }}
@@ -239,7 +263,7 @@ export default function Home() {
               <button onClick={() => setAbierto(false)} style={{ background: "none", border: "1px solid #ff2d78", color: "#ff2d78", borderRadius: 8, padding: "4px 10px", cursor: "pointer" }}>X</button>
             </div>
             {carrito.length === 0 && (
-              <div style={{ textAlign: "center", color: "#555", marginTop: 60 }}>
+              <div style={{ textStyle: "center", color: "#555", marginTop: 60 }}>
                 <div style={{ fontSize: 48 }}>🛒</div>
                 <div style={{ marginTop: 12 }}>Carrito vacio</div>
               </div>
@@ -300,7 +324,7 @@ export default function Home() {
         <p style={{ color: "#ccc", fontSize: 17, marginBottom: 0 }}>Envios a todo el pais - Paga con MercadoPago</p>
       </section>
 
-      {/* BANNER DINÁMICO CORREGIDO */}
+      {/* BANNER DINÁMICO DE OFERTA FLASH */}
       {ofertaActiva && (
         <div style={{ background: "linear-gradient(90deg, #220011, #450a26, #220011)", borderBottom: "1px dashed #ff2d78", padding: "16px 20px", textAlign: "center" }}>
           <div style={{ maxWidth: 600, margin: "0 auto" }}>
@@ -389,7 +413,6 @@ export default function Home() {
                         {p.emoji}
                       </div>
                     )}
-                    {/* CONDICIONAL DE STOCK CORREGIDO */}
                     {p.stock <= 3 && p.stock > 0 && (
                       <div style={{ position: "absolute", top: 8, left: 8, background: "#EF4444", color: "#fff", fontSize: 11, fontWeight: 700, padding: "4px 8px", borderRadius: 8 }}>
                         Ultimas {p.stock} unidades
@@ -442,23 +465,7 @@ export default function Home() {
       </section>
 
       <footer style={{ textAlign: "center", padding: 28, borderTop: "1px solid #ff2d78", color: "#555", fontSize: 13 }}>
-        <div style={{ marginBottom: 12 }}>
-          2026 CARITO.SHOP - Hecho con amor en Argentina
-        </div>
-        <a href="/admin" style={{ 
-          display: "inline-block", 
-          padding: "6px 12px", 
-          borderRadius: 8, 
-          border: "1px solid #333", 
-          background: "#111", 
-          color: "#ff2d78", 
-          textDecoration: "none", 
-          fontSize: 11, 
-          fontWeight: 700,
-          boxShadow: "0 0 5px rgba(255,45,120,0.2)"
-        }}>
-          🔒 Panel de Control
-        </a>
+        2026 CARITO.SHOP - Hecho con amor en Argentina
       </footer>
     </main>
   );
