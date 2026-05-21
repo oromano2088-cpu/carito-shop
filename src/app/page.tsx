@@ -55,6 +55,11 @@ export default function Home() {
     window.open("https://wa.me/5491133851488?text=" + encodeURIComponent(msg), "_blank");
   };
 
+  const compartirProducto = (p: Producto) => {
+    const msg = "Mira este producto de CARITO.SHOP!\n\n" + p.nombre + "\n$" + p.precio.toLocaleString("es-AR") + "\n\n" + p.descripcion + "\n\nCompralo en: carito-shop.vercel.app";
+    window.open("https://wa.me/?text=" + encodeURIComponent(msg), "_blank");
+  };
+
   const confirmarPedido = async () => {
     if (!form.nombre || !form.telefono) { setToast("Completa nombre y telefono"); return; }
     setEnviando(true);
@@ -194,7 +199,6 @@ export default function Home() {
         <p style={{ color: "#ccc", fontSize: 17, marginBottom: 0 }}>Envios a todo el pais - Paga con MercadoPago</p>
       </section>
 
-      {/* FILTRO CATEGORIAS */}
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "20px 20px 0", display: "flex", gap: 10, overflowX: "auto", paddingBottom: 10 }}>
         {categorias.map(cat => (
           <button key={cat} onClick={() => setCategoriaActiva(cat)} style={{
@@ -250,8 +254,11 @@ export default function Home() {
                   <button onClick={() => {
                     const msg = "Hola CARITO.SHOP! Me interesa: " + p.nombre + " - $" + p.precio.toLocaleString("es-AR");
                     window.open("https://wa.me/5491133851488?text=" + encodeURIComponent(msg), "_blank");
-                  }} style={{ width: "100%", padding: 10, background: "transparent", border: "1px solid #25D366", borderRadius: 12, color: "#25D366", fontWeight: 700, cursor: "pointer" }}>
-                    Consultar por WhatsApp
+                  }} style={{ width: "100%", padding: 10, background: "transparent", border: "1px solid #25D366", borderRadius: 12, color: "#25D366", fontWeight: 700, cursor: "pointer", marginBottom: 8 }}>
+                    💬 Consultar por WhatsApp
+                  </button>
+                  <button onClick={() => compartirProducto(p)} style={{ width: "100%", padding: 10, background: "transparent", border: "1px solid #fff", borderRadius: 12, color: "#fff", fontWeight: 700, cursor: "pointer" }}>
+                    📤 Compartir producto
                   </button>
                 </div>
               </div>
