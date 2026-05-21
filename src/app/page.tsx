@@ -442,7 +442,23 @@ export default function Home() {
       </section>
 
       <footer style={{ textAlign: "center", padding: 28, borderTop: "1px solid #ff2d78", color: "#555", fontSize: 13 }}>
-        2026 CARITO.SHOP - Hecho con amor en Argentina
+        <div style={{ marginBottom: 12 }}>
+          2026 CARITO.SHOP - Hecho con amor en Argentina
+        </div>
+        <a href="/admin" style={{ 
+          display: "inline-block", 
+          padding: "6px 12px", 
+          borderRadius: 8, 
+          border: "1px solid #333", 
+          background: "#111", 
+          color: "#ff2d78", 
+          textDecoration: "none", 
+          fontSize: 11, 
+          fontWeight: 700,
+          boxShadow: "0 0 5px rgba(255,45,120,0.2)"
+        }}>
+          🔒 Panel de Control
+        </a>
       </footer>
     </main>
   );
