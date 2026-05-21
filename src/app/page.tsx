@@ -2,9 +2,13 @@
 import { useState, useEffect } from "react";
 import { supabase } from "./supabase";
 
-type Producto = { id: number; nombre: string; descripcion: string; precio: number; emoji: string; activo: boolean; imagen: string; categoria: string; stock: number; };
+type Producto = { id: number; nombre: string; descripcion: string; precio: number; emoji: string; activo: boolean; imagen: string; imagen2: string; imagen3: string; categoria: string; stock: number; };
 type Item = Producto & { cantidad: number };
 const neon = { color: "#ff2d78", textShadow: "0 0 10px #ff2d78" };
+
+function getImagenes(p: Producto) {
+  return [p.imagen, p.imagen2, p.imagen3].filter(Boolean) as string[];
+}
 
 export default function Home() {
   const [lista, setLista] = useState<Producto[]>([]);
@@ -18,6 +22,8 @@ export default function Home() {
   const [pedidoOk, setPedidoOk] = useState(false);
   const [categoriaActiva, setCategoriaActiva] = useState("Todos");
   const [categorias, setCategorias] = useState<string[]>([]);
+  const [visor, setVisor] = useState<{ imagenes: string[]; indice: number } | null>(null);
+  const [indicesProducto, setIndicesProducto] = useState<{ [id: number]: number }>({});
 
   useEffect(() => { init(); }, []);
 
@@ -82,10 +88,45 @@ export default function Home() {
     setForm({ nombre: "", telefono: "", direccion: "" });
   };
 
+  const cambiarIndice = (id: number, dir: number, total: number) => {
+    setIndicesProducto(prev => {
+      const actual = prev[id] || 0;
+      const nuevo = (actual + dir + total) % total;
+      return { ...prev, [id]: nuevo };
+    });
+  };
+
   return (
     <main style={{ minHeight: "100vh", background: "#0a0a0a", fontFamily: "sans-serif" }}>
+
+      {/* VISOR PANTALLA COMPLETA */}
+      {visor && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.97)", display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={() => setVisor(null)}>
+          <button onClick={() => setVisor(null)} style={{ position: "absolute", top: 20, right: 20, background: "rgba(255,255,255,0.1)", border: "none", color: "#fff", fontSize: 28, cursor: "pointer", borderRadius: 50, width: 44, height: 44 }}>✕</button>
+          {visor.imagenes.length > 1 && (
+            <button onClick={e => { e.stopPropagation(); setVisor(prev => prev ? { ...prev, indice: (prev.indice - 1 + prev.imagenes.length) % prev.imagenes.length } : null); }}
+              style={{ position: "absolute", left: 20, background: "rgba(255,255,255,0.1)", border: "none", color: "#fff", fontSize: 28, cursor: "pointer", borderRadius: 50, width: 44, height: 44 }}>‹</button>
+          )}
+          <img src={visor.imagenes[visor.indice]} onClick={e => e.stopPropagation()}
+            style={{ maxWidth: "90vw", maxHeight: "90vh", objectFit: "contain", borderRadius: 12 }} />
+          {visor.imagenes.length > 1 && (
+            <button onClick={e => { e.stopPropagation(); setVisor(prev => prev ? { ...prev, indice: (prev.indice + 1) % prev.imagenes.length } : null); }}
+              style={{ position: "absolute", right: 20, background: "rgba(255,255,255,0.1)", border: "none", color: "#fff", fontSize: 28, cursor: "pointer", borderRadius: 50, width: 44, height: 44 }}>›</button>
+          )}
+          {visor.imagenes.length > 1 && (
+            <div style={{ position: "absolute", bottom: 20, display: "flex", gap: 8 }}>
+              {visor.imagenes.map((_, i) => (
+                <div key={i} onClick={e => { e.stopPropagation(); setVisor(prev => prev ? { ...prev, indice: i } : null); }}
+                  style={{ width: 8, height: 8, borderRadius: 50, background: i === visor.indice ? "#ff2d78" : "#555", cursor: "pointer" }} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {toast !== "" && (
-        <div style={{ position: "fixed", bottom: 30, left: "50%", transform: "translateX(-50%)", background: "#ff2d78", color: "#fff", padding: "12px 24px", borderRadius: 12, fontWeight: 700, zIndex: 9999 }}>
+        <div style={{ position: "fixed", bottom: 30, left: "50%", transform: "translateX(-50%)", background: "#ff2d78", color: "#fff", padding: "12px 24px", borderRadius: 12, fontWeight: 700, zIndex: 9000 }}>
           {toast}
         </div>
       )}
@@ -111,20 +152,17 @@ export default function Home() {
             <p style={{ color: "#555", fontSize: 13, marginBottom: 20 }}>{"Total: $" + totalP.toLocaleString("es-AR")}</p>
             <div style={{ marginBottom: 12 }}>
               <div style={{ color: "#888", fontSize: 12, marginBottom: 6 }}>Nombre completo *</div>
-              <input value={form.nombre} onChange={e => setForm(p => ({ ...p, nombre: e.target.value }))}
-                placeholder="Tu nombre"
+              <input value={form.nombre} onChange={e => setForm(p => ({ ...p, nombre: e.target.value }))} placeholder="Tu nombre"
                 style={{ width: "100%", padding: 10, borderRadius: 10, border: "1px solid #333", background: "#0a0a0a", color: "#fff", fontSize: 14, boxSizing: "border-box" }} />
             </div>
             <div style={{ marginBottom: 12 }}>
               <div style={{ color: "#888", fontSize: 12, marginBottom: 6 }}>Telefono *</div>
-              <input value={form.telefono} onChange={e => setForm(p => ({ ...p, telefono: e.target.value }))}
-                placeholder="Tu telefono"
+              <input value={form.telefono} onChange={e => setForm(p => ({ ...p, telefono: e.target.value }))} placeholder="Tu telefono"
                 style={{ width: "100%", padding: 10, borderRadius: 10, border: "1px solid #333", background: "#0a0a0a", color: "#fff", fontSize: 14, boxSizing: "border-box" }} />
             </div>
             <div style={{ marginBottom: 20 }}>
               <div style={{ color: "#888", fontSize: 12, marginBottom: 6 }}>Direccion de envio</div>
-              <input value={form.direccion} onChange={e => setForm(p => ({ ...p, direccion: e.target.value }))}
-                placeholder="Tu direccion"
+              <input value={form.direccion} onChange={e => setForm(p => ({ ...p, direccion: e.target.value }))} placeholder="Tu direccion"
                 style={{ width: "100%", padding: 10, borderRadius: 10, border: "1px solid #333", background: "#0a0a0a", color: "#fff", fontSize: 14, boxSizing: "border-box" }} />
             </div>
             <button onClick={confirmarPedido} disabled={enviando} style={{ width: "100%", padding: 13, background: "linear-gradient(135deg, #ff2d78, #ff0055)", border: "none", borderRadius: 12, color: "#fff", fontWeight: 800, fontSize: 15, cursor: "pointer", marginBottom: 10 }}>
@@ -224,45 +262,76 @@ export default function Home() {
         )}
         {!cargando && listaFiltrada.length > 0 && (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 20 }}>
-            {listaFiltrada.map(p => (
-              <div key={p.id} style={{ background: "#111", border: "1px solid #ff2d78", borderRadius: 20, overflow: "hidden" }}>
-                <div style={{ height: 200, overflow: "hidden", borderBottom: "1px solid #ff2d78", position: "relative" }}>
-                  {p.imagen ? (
-                    <img src={p.imagen} alt={p.nombre} style={{ width: "100%", height: "100%", objectFit: "contain", background: "#0a0a0a" }} />
-                  ) : (
-                    <div style={{ background: "linear-gradient(135deg, #1a0010, #0a0a0a)", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 70 }}>
-                      {p.emoji}
-                    </div>
-                  )}
-                  {p.stock <= 3 && p.stock > 0 && (
-                    <div style={{ position: "absolute", top: 10, right: 10, background: "#EF4444", color: "#fff", fontSize: 11, fontWeight: 700, padding: "4px 8px", borderRadius: 8 }}>
-                      Ultimas {p.stock} unidades
-                    </div>
-                  )}
-                </div>
-                <div style={{ padding: 18 }}>
-                  <div style={{ fontSize: 11, color: "#ff2d78", fontWeight: 600, marginBottom: 4 }}>{p.categoria}</div>
-                  <h4 style={{ color: "#fff", fontWeight: 800, fontSize: 16, marginBottom: 6 }}>{p.nombre}</h4>
-                  <p style={{ color: "#888", fontSize: 13, marginBottom: 12 }}>{p.descripcion}</p>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                    <span style={{ fontSize: 22, fontWeight: 900, color: "#ff2d78" }}>{"$" + p.precio.toLocaleString("es-AR")}</span>
-                    <span style={{ fontSize: 12, color: "#555" }}>{"Stock: " + p.stock}</span>
+            {listaFiltrada.map(p => {
+              const imagenes = getImagenes(p);
+              const indice = indicesProducto[p.id] || 0;
+              return (
+                <div key={p.id} style={{ background: "#111", border: "1px solid #ff2d78", borderRadius: 20, overflow: "hidden" }}>
+                  {/* GALERIA DE IMAGENES */}
+                  <div style={{ height: 220, position: "relative", background: "#0a0a0a", borderBottom: "1px solid #ff2d78" }}>
+                    {imagenes.length > 0 ? (
+                      <>
+                        <img
+                          src={imagenes[indice]}
+                          alt={p.nombre}
+                          onClick={() => setVisor({ imagenes, indice })}
+                          style={{ width: "100%", height: "100%", objectFit: "contain", cursor: "zoom-in" }}
+                        />
+                        {imagenes.length > 1 && (
+                          <>
+                            <button onClick={() => cambiarIndice(p.id, -1, imagenes.length)}
+                              style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", background: "rgba(0,0,0,0.6)", border: "none", color: "#fff", fontSize: 20, cursor: "pointer", borderRadius: 50, width: 32, height: 32 }}>‹</button>
+                            <button onClick={() => cambiarIndice(p.id, 1, imagenes.length)}
+                              style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "rgba(0,0,0,0.6)", border: "none", color: "#fff", fontSize: 20, cursor: "pointer", borderRadius: 50, width: 32, height: 32 }}>›</button>
+                            <div style={{ position: "absolute", bottom: 8, left: "50%", transform: "translateX(-50%)", display: "flex", gap: 5 }}>
+                              {imagenes.map((_, i) => (
+                                <div key={i} onClick={() => setIndicesProducto(prev => ({ ...prev, [p.id]: i }))}
+                                  style={{ width: 7, height: 7, borderRadius: 50, background: i === indice ? "#ff2d78" : "#555", cursor: "pointer" }} />
+                              ))}
+                            </div>
+                          </>
+                        )}
+                        <div onClick={() => setVisor({ imagenes, indice })}
+                          style={{ position: "absolute", top: 8, right: 8, background: "rgba(0,0,0,0.6)", borderRadius: 8, padding: "4px 8px", cursor: "pointer" }}>
+                          <span style={{ color: "#fff", fontSize: 14 }}>🔍</span>
+                        </div>
+                      </>
+                    ) : (
+                      <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 70 }}>
+                        {p.emoji}
+                      </div>
+                    )}
+                    {p.stock <= 3 && p.stock > 0 && (
+                      <div style={{ position: "absolute", top: 8, left: 8, background: "#EF4444", color: "#fff", fontSize: 11, fontWeight: 700, padding: "4px 8px", borderRadius: 8 }}>
+                        Ultimas {p.stock} unidades
+                      </div>
+                    )}
                   </div>
-                  <button onClick={() => agregar(p)} style={{ width: "100%", padding: 12, background: "linear-gradient(135deg, #ff2d78, #ff0055)", border: "none", borderRadius: 12, color: "#fff", fontWeight: 800, cursor: "pointer", marginBottom: 8 }}>
-                    Agregar al carrito
-                  </button>
-                  <button onClick={() => {
-                    const msg = "Hola CARITO.SHOP! Me interesa: " + p.nombre + " - $" + p.precio.toLocaleString("es-AR");
-                    window.open("https://wa.me/5491133851488?text=" + encodeURIComponent(msg), "_blank");
-                  }} style={{ width: "100%", padding: 10, background: "transparent", border: "1px solid #25D366", borderRadius: 12, color: "#25D366", fontWeight: 700, cursor: "pointer", marginBottom: 8 }}>
-                    💬 Consultar por WhatsApp
-                  </button>
-                  <button onClick={() => compartirProducto(p)} style={{ width: "100%", padding: 10, background: "transparent", border: "1px solid #fff", borderRadius: 12, color: "#fff", fontWeight: 700, cursor: "pointer" }}>
-                    📤 Compartir producto
-                  </button>
+
+                  <div style={{ padding: 18 }}>
+                    <div style={{ fontSize: 11, color: "#ff2d78", fontWeight: 600, marginBottom: 4 }}>{p.categoria}</div>
+                    <h4 style={{ color: "#fff", fontWeight: 800, fontSize: 16, marginBottom: 6 }}>{p.nombre}</h4>
+                    <p style={{ color: "#888", fontSize: 13, marginBottom: 12 }}>{p.descripcion}</p>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                      <span style={{ fontSize: 22, fontWeight: 900, color: "#ff2d78" }}>{"$" + p.precio.toLocaleString("es-AR")}</span>
+                      <span style={{ fontSize: 12, color: "#555" }}>{"Stock: " + p.stock}</span>
+                    </div>
+                    <button onClick={() => agregar(p)} style={{ width: "100%", padding: 12, background: "linear-gradient(135deg, #ff2d78, #ff0055)", border: "none", borderRadius: 12, color: "#fff", fontWeight: 800, cursor: "pointer", marginBottom: 8 }}>
+                      Agregar al carrito
+                    </button>
+                    <button onClick={() => {
+                      const msg = "Hola CARITO.SHOP! Me interesa: " + p.nombre + " - $" + p.precio.toLocaleString("es-AR");
+                      window.open("https://wa.me/5491133851488?text=" + encodeURIComponent(msg), "_blank");
+                    }} style={{ width: "100%", padding: 10, background: "transparent", border: "1px solid #25D366", borderRadius: 12, color: "#25D366", fontWeight: 700, cursor: "pointer", marginBottom: 8 }}>
+                      💬 Consultar por WhatsApp
+                    </button>
+                    <button onClick={() => compartirProducto(p)} style={{ width: "100%", padding: 10, background: "transparent", border: "1px solid #fff", borderRadius: 12, color: "#fff", fontWeight: 700, cursor: "pointer" }}>
+                      📤 Compartir producto
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>
