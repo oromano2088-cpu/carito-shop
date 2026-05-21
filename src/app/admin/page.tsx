@@ -2,7 +2,21 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../supabase";
 
-type Producto = { id: number; nombre: string; descripcion: string; precio: number; emoji: string; activo: boolean; imagen: string; imagen2: string; imagen3: string; categoria: string; stock: number; };
+type Producto = { 
+  id: number; 
+  nombre: string; 
+  descripcion: string; 
+  precio: number; 
+  precio_oferta: number | null; 
+  oferta_hasta: string | null; 
+  emoji: string; 
+  activo: boolean; 
+  imagen: string; 
+  imagen2: string; 
+  imagen3: string; 
+  categoria: string; 
+  stock: number; 
+};
 type Categoria = { id: number; Nombre: string; };
 const CLAVE = "carito2026";
 
@@ -13,7 +27,7 @@ export default function Admin() {
   const [productos, setProductos] = useState<Producto[]>([]);
   const [listadoCategorias, setListadoCategorias] = useState<Categoria[]>([]);
   const [cargando, setCargando] = useState(false);
-  const [nuevo, setNuevo] = useState({ nombre: "", descripcion: "", precio: "", emoji: "🛍️", imagen: "", imagen2: "", imagen3: "", categoria: "", stock: "0" });
+  const [nuevo, setNuevo] = useState({ nombre: "", descripcion: "", precio: "", precio_oferta: "", oferta_hasta: "", emoji: "🛍️", imagen: "", imagen2: "", imagen3: "", categoria: "", stock: "0" });
   const [nuevaCatNombre, setNuevaCatNombre] = useState("");
   const [toast, setToast] = useState("");
   const [subiendo, setSubiendo] = useState(false);
@@ -78,6 +92,8 @@ export default function Admin() {
       nombre: nuevo.nombre,
       descripcion: nuevo.descripcion,
       precio: parseInt(nuevo.precio),
+      precio_oferta: nuevo.precio_oferta ? parseInt(nuevo.precio_oferta) : null,
+      oferta_hasta: nuevo.oferta_hasta ? nuevo.oferta_hasta : null,
       emoji: nuevo.emoji,
       imagen: nuevo.imagen,
       imagen2: nuevo.imagen2,
@@ -88,7 +104,7 @@ export default function Admin() {
     });
     if (error) { mostrarToast("Error al guardar: " + error.message); return; }
     mostrarToast("Producto agregado");
-    setNuevo({ nombre: "", descripcion: "", precio: "", emoji: "🛍️", imagen: "", imagen2: "", imagen3: "", categoria: listadoCategorias[0]?.Nombre || "", stock: "0" });
+    setNuevo({ nombre: "", descripcion: "", precio: "", precio_oferta: "", oferta_hasta: "", emoji: "🛍️", imagen: "", imagen2: "", imagen3: "", categoria: listadoCategorias[0]?.Nombre || "", stock: "0" });
     cargarTodo();
   };
 
@@ -98,6 +114,8 @@ export default function Admin() {
       nombre: editando.nombre,
       descripcion: editando.descripcion,
       precio: editando.precio,
+      precio_oferta: editando.precio_oferta ? editando.precio_oferta : null,
+      oferta_hasta: editando.oferta_hasta ? editando.oferta_hasta : null,
       emoji: editando.emoji,
       imagen: editando.imagen,
       imagen2: editando.imagen2,
@@ -135,7 +153,6 @@ export default function Admin() {
   };
 
   const neon = { color: "#ff2d78", textShadow: "0 0 10px #ff2d78" };
-
   const inputStyle = { width: "100%", padding: 10, borderRadius: 10, border: "1px solid #333", background: "#0a0a0a", color: "#fff", fontSize: 13, boxSizing: "border-box" as const };
 
   if (!logueado) return (
@@ -181,7 +198,7 @@ export default function Admin() {
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
               <div>
-                <div style={{ color: "#888", fontSize: 12, marginBottom: 6 }}>Precio</div>
+                <div style={{ color: "#888", fontSize: 12, marginBottom: 6 }}>Precio Normal ($)</div>
                 <input type="number" value={editando.precio} onChange={e => setEditando(p => p ? { ...p, precio: parseInt(e.target.value) } : null)} style={inputStyle} />
               </div>
               <div>
@@ -189,6 +206,19 @@ export default function Admin() {
                 <input type="number" value={editando.stock} onChange={e => setEditando(p => p ? { ...p, stock: parseInt(e.target.value) } : null)} style={inputStyle} />
               </div>
             </div>
+
+            {/* NUEVOS CAMPOS DE OFERTA EN EL MODAL DE EDICIÓN */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+              <div>
+                <div style={{ color: "#ff2d78", fontSize: 12, marginBottom: 6, fontWeight: "bold" }}>Precio Oferta (Opcional)</div>
+                <input type="number" value={editando.precio_oferta || ""} onChange={e => setEditando(p => p ? { ...p, precio_oferta: e.target.value ? parseInt(e.target.value) : null } : null)} placeholder="Ej: 22000" style={inputStyle} />
+              </div>
+              <div>
+                <div style={{ color: "#ff2d78", fontSize: 12, marginBottom: 6, fontWeight: "bold" }}>Oferta hasta (Fecha/Hora)</div>
+                <input type="datetime-local" value={editando.oferta_hasta ? editando.oferta_hasta.substring(0,16) : ""} onChange={e => setEditando(p => p ? { ...p, oferta_hasta: e.target.value ? e.target.value : null } : null)} style={inputStyle} />
+              </div>
+            </div>
+
             <div style={{ marginBottom: 12 }}>
               <div style={{ color: "#888", fontSize: 12, marginBottom: 6 }}>Categoria</div>
               <select value={editando.categoria} onChange={e => setEditando(p => p ? { ...p, categoria: e.target.value } : null)} style={inputStyle}>
@@ -258,10 +288,23 @@ export default function Admin() {
               <input value={nuevo.nombre} onChange={e => setNuevo(p => ({ ...p, nombre: e.target.value }))} placeholder="Nombre del producto" style={inputStyle} />
             </div>
             <div>
-              <div style={{ color: "#888", fontSize: 12, marginBottom: 6 }}>Precio</div>
+              <div style={{ color: "#888", fontSize: 12, marginBottom: 6 }}>Precio Normal</div>
               <input value={nuevo.precio} onChange={e => setNuevo(p => ({ ...p, precio: e.target.value }))} placeholder="25000" type="number" style={inputStyle} />
             </div>
           </div>
+
+          {/* NUEVOS CAMPOS DE OFERTA EN EL FORMULARIO DE ALTA */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+            <div>
+              <div style={{ color: "#ff2d78", fontSize: 12, marginBottom: 6, fontWeight: "bold" }}>Precio de Oferta (Opcional)</div>
+              <input value={nuevo.precio_oferta} onChange={e => setNuevo(p => ({ ...p, precio_oferta: e.target.value }))} placeholder="Ej: 20000" type="number" style={inputStyle} />
+            </div>
+            <div>
+              <div style={{ color: "#ff2d78", fontSize: 12, marginBottom: 6, fontWeight: "bold" }}>Oferta válida hasta</div>
+              <input value={nuevo.oferta_hasta} onChange={e => setNuevo(p => ({ ...p, oferta_hasta: e.target.value }))} type="datetime-local" style={inputStyle} />
+            </div>
+          </div>
+
           <div style={{ marginBottom: 12 }}>
             <div style={{ color: "#888", fontSize: 12, marginBottom: 6 }}>Descripcion</div>
             <textarea value={nuevo.descripcion} onChange={e => setNuevo(p => ({ ...p, descripcion: e.target.value }))}
@@ -313,7 +356,11 @@ export default function Admin() {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>{p.nombre}</div>
                 <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 4, flexWrap: "wrap" }}>
-                  <div style={{ color: "#ff2d78", fontWeight: 800, fontSize: 13 }}>{"$" + p.precio.toLocaleString("es-AR")}</div>
+                  {/* AQUÍ MUESTRA EL PRECIO DE OFERTA SI EXISTE */}
+                  <div style={{ color: "#ff2d78", fontWeight: 800, fontSize: 14 }}>
+                    {p.precio_oferta ? `OFERTA: $${p.precio_oferta.toLocaleString("es-AR")}` : `$${p.precio.toLocaleString("es-AR")}`}
+                  </div>
+                  {p.precio_oferta && <span style={{ fontSize: 11, color: "#555", textDecoration: "line-through" }}>${p.precio.toLocaleString("es-AR")}</span>}
                   <span style={{ fontSize: 10, background: "#222", color: "#aaa", padding: "2px 6px", borderRadius: 4 }}>{p.categoria || "Sin cat."}</span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
