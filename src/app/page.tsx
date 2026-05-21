@@ -236,7 +236,7 @@ export default function Home() {
   <img
     src="https://acjufczrwyztsmzmljdk.supabase.co/storage/v1/object/public/productos/icono.ico.jpg"
     alt="CARITO.SHOP"
-    style={{ width: 220, maxWidth: "80%", marginBottom: 16, borderRadius: 16 }}
+    style={{ width: 220, maxWidth: "80%", marginBottom: 16, borderRadius: 16, display: "block", margin: "0 auto 16px auto" }}
   />
   <p style={{ color: "#ccc", fontSize: 17, marginBottom: 0 }}>Envios a todo el pais - Paga con MercadoPago</p>
 </section>
