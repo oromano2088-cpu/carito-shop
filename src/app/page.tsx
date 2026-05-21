@@ -263,7 +263,7 @@ export default function Home() {
               <button onClick={() => setAbierto(false)} style={{ background: "none", border: "1px solid #ff2d78", color: "#ff2d78", borderRadius: 8, padding: "4px 10px", cursor: "pointer" }}>X</button>
             </div>
             {carrito.length === 0 && (
-              <div style={{ textStyle: "center", color: "#555", marginTop: 60 }}>
+              <div style={{ textAlign: "center", color: "#555", marginTop: 60 }}>
                 <div style={{ fontSize: 48 }}>🛒</div>
                 <div style={{ marginTop: 12 }}>Carrito vacio</div>
               </div>
