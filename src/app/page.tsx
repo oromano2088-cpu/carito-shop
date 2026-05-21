@@ -96,6 +96,31 @@ export default function Home() {
             if (imgs.length > 0) {
               setVisor({ imagenes: imgs, indice: 0 });
             }
+
+            // CAMBIO CLAVE: Inyectar dinámicamente etiquetas Open Graph en el HEAD para previsualización
+            let metaOgTitle = document.querySelector('meta[property="og:title"]');
+            if (!metaOgTitle) {
+              metaOgTitle = document.createElement('meta');
+              metaOgTitle.setAttribute('property', 'og:title');
+              document.head.appendChild(metaOgTitle);
+            }
+            metaOgTitle.setAttribute('content', encontrado.nombre);
+
+            let metaOgImg = document.querySelector('meta[property="og:image"]');
+            if (!metaOgImg) {
+              metaOgImg = document.createElement('meta');
+              metaOgImg.setAttribute('property', 'og:image');
+              document.head.appendChild(metaOgImg);
+            }
+            metaOgImg.setAttribute('content', imgs[0]);
+
+            let metaOgDesc = document.querySelector('meta[property="og:description"]');
+            if (!metaOgDesc) {
+              metaOgDesc = document.createElement('meta');
+              metaOgDesc.setAttribute('property', 'og:description');
+              document.head.appendChild(metaOgDesc);
+            }
+            metaOgDesc.setAttribute('content', encontrado.descripcion);
           }
         }
       }
