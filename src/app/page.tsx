@@ -74,15 +74,12 @@ export default function Home() {
       setLista(data);
       
       const ahoraIso = new Date().toISOString();
-      
-      // Filtrar todos los productos que tienen oferta flash válida actualmente
       const ofertasVigentes = data.filter((p: Producto) => p.precio_oferta && p.oferta_hasta && p.oferta_hasta > ahoraIso);
       
-      // Construir las categorías dinámicas incluyendo la carpeta especial de ofertas si existen
       const baseCats = ["Todos"];
       if (ofertasVigentes.length > 0) {
         baseCats.push("⚡ Ofertas Flash");
-        setOfertaActiva(ofertasVigentes[0]); // El reloj principal toma el primer producto en oferta
+        setOfertaActiva(ofertasVigentes[0]);
       }
       
       const otrasCats = Array.from(new Set(data.map((p: Producto) => p.categoria).filter(Boolean))) as string[];
@@ -91,7 +88,6 @@ export default function Home() {
     setCargando(false);
   };
 
-  // LÓGICA DE FILTRADO PARA LA NUEVA CATEGORÍA DE OFERTAS FLASH
   const listaFiltrada = (() => {
     if (categoriaActiva === "Todos") return lista;
     if (categoriaActiva === "⚡ Ofertas Flash") {
@@ -339,7 +335,7 @@ export default function Home() {
         <p style={{ color: "#ccc", fontSize: 17, marginBottom: 0 }}>Envios a todo el pais - Paga con MercadoPago</p>
       </section>
 
-      {/* BANNER CLICKEABLE DE OFERTA FLASH */}
+      {/* BANNER DINÁMICO DE OFERTA FLASH */}
       {ofertaActiva && (
         <div 
           onClick={() => setCategoriaActiva("⚡ Ofertas Flash")}
@@ -348,8 +344,7 @@ export default function Home() {
             borderBottom: "1px dashed #ff2d78", 
             padding: "16px 20px", 
             textAlign: "center",
-            cursor: "pointer",
-            transition: "all 0.3s ease"
+            cursor: "pointer"
           }}
         >
           <div style={{ maxWidth: 600, margin: "0 auto" }}>
@@ -390,7 +385,7 @@ export default function Home() {
         {!cargando && listaFiltrada.length === 0 && (
           <div style={{ textAlign: "center", color: "#555", padding: 60 }}>
             <div style={{ fontSize: 48 }}>🛍️</div>
-            <div style={{ marginTop: 12 }}>No hay ofertas flash activas en este momento</div>
+            <div style={{ marginTop: 12 }}>No hay productos en esta categoria</div>
           </div>
         )}
         {!cargando && listaFiltrada.length > 0 && (
@@ -448,6 +443,33 @@ export default function Home() {
                         ⚡ OFERTA
                       </div>
                     )}
+
+                    {/* NUEVO ÍCONO DE COMPARTIR NEÓN (UBICACIÓN CORREGIDA) */}
+                    <div 
+                      onClick={(e) => { e.stopPropagation(); compartirProducto(p); }}
+                      style={{ 
+                        position: "absolute", 
+                        bottom: 8, 
+                        right: 8, 
+                        background: "rgba(10,10,10,0.9)", 
+                        border: "1px solid #ff2d78", 
+                        borderRadius: "50%", 
+                        width: 38, 
+                        height: 38, 
+                        display: "flex", 
+                        alignItems: "center", 
+                        justifyContent: "center", 
+                        cursor: "pointer", 
+                        boxShadow: "0 0 15px rgba(255,45,120,0.5)",
+                        transition: "all 0.3s ease",
+                        zIndex: 10 // Para asegurar que esté por encima de otros elementos
+                      }}
+                      title="Compartir producto"
+                    >
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M18 16.08C17.24 16.08 16.56 16.38 16.04 16.85L8.91 12.7C8.96 12.47 9 12.24 9 12C9 11.76 8.96 11.53 8.91 11.3L15.96 7.19C16.5 7.69 17.21 8 18 8C19.66 8 21 6.66 21 5C21 3.34 19.66 2 18 2C16.34 2 15 3.34 15 5C15 5.24 15.04 5.47 15.09 5.7L8.04 9.81C7.5 9.31 6.79 9 6 9C4.34 9 3 10.34 3 12C3 13.66 4.34 15 6 15C6.79 15 7.5 14.69 8.04 14.19L15.16 18.35C15.11 18.56 15.08 18.78 15.08 19C15.08 20.61 16.39 21.92 18 21.92C19.61 21.92 20.92 20.61 20.92 19C20.92 17.39 19.61 16.08 18 16.08Z" fill="#ff2d78" style={{ filter: "drop-shadow(0 0 3px #ff2d78)" }}/>
+                      </svg>
+                    </div>
                   </div>
 
                   <div style={{ padding: 18 }}>
@@ -478,9 +500,8 @@ export default function Home() {
                     }} style={{ width: "100%", padding: 10, background: "transparent", border: "1px solid #25D366", borderRadius: 12, color: "#25D366", fontWeight: 700, cursor: "pointer", marginBottom: 8 }}>
                       💬 Consultar por WhatsApp
                     </button>
-                    <button onClick={() => compartirProducto(p)} style={{ width: "100%", padding: 10, background: "transparent", border: "1px solid #fff", borderRadius: 12, color: "#fff", fontWeight: 700, cursor: "pointer" }}>
-                      📤 Compartir producto
-                    </button>
+                    
+                    {/* EL BOTÓN DE TEXTO ANTERIOR HA SIDO ELIMINADO DE AQUÍ */}
                   </div>
                 </div>
               );
