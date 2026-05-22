@@ -38,13 +38,9 @@ export default function AdminMobile() {
   const [clave, setClave] = useState("");
   const [error, setError] = useState("");
   
-  // 4 SOLAPAS INDEPENDIENTES
   const [pestana, setPestana] = useState<'catalogo' | 'alta' | 'ventas' | 'caja'>('catalogo');
 
-  // ESTADOS CONTABLES DE CAJAS DISPONIBLES
   const [cajas, setCajas] = useState({ alias: 0, brubankSenora: 0, efectivo: 0 });
-
-  // ESTADOS GENERALES
   const [productos, setProductos] = useState<Producto[]>([]);
   const [listadoCategorias, setListadoCategorias] = useState<Categoria[]>([]);
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
@@ -53,7 +49,6 @@ export default function AdminMobile() {
   const [cargando, setCargando] = useState(false);
   const [toast, setToast] = useState("");
 
-  // ESTADOS FORMULARIOS
   const [nuevo, setNuevo] = useState({ nombre: "", descripcion: "", precio: "", precio_oferta: "", oferta_hasta: "", emoji: "🛍️", imagen: "", imagen2: "", imagen3: "", categoria: "", stock: "0" });
   const [creandoNuevaCat, setCreandoNuevaCat] = useState(false);
   const [nuevaCatNombre, setNuevaCatNombre] = useState("");
@@ -61,7 +56,6 @@ export default function AdminMobile() {
   const [editando, setEditando] = useState<Producto | null>(null);
   const [nuevoGasto, setNuevoGasto] = useState({ distribuidora: "", monto: "", concepto: "", cuenta_salida: "Efectivo" as any });
 
-  // FILTROS Y FINANCIACIÓN
   const [filtroMes, setFiltroMes] = useState<string>("Todos");
   const [pedidoFinanciando, setPedidoFinanciando] = useState<number | null>(null);
   const [planCuotas, setPlanCuotas] = useState({ cantidad: 3, anticipo: 200000, recargoPorCuota: 10, cuenta: "Efectivo" });
@@ -71,8 +65,6 @@ export default function AdminMobile() {
 
   const cargarTodo = async () => {
     setCargando(true);
-    
-    // 1. Cargar Catálogo original
     const { data: prodData } = await supabase.from("productos").select("*").order("id", { ascending: false });
     if (prodData) setProductos(prodData);
     
@@ -84,22 +76,18 @@ export default function AdminMobile() {
       }
     }
 
-    // 2. Cargar Pedidos y Gastos
     const { data: pData } = await supabase.from("pedidos").select("*").order("creado_en", { ascending: false });
     const listaPedidos = pData || []; setPedidos(listaPedidos);
 
-    // Mapear los meses disponibles basándonos en las fechas de los pedidos reales
     const meses = Array.from(new Set(listaPedidos.map(p => p.creado_en.substring(0, 7)))) as string[];
     setMesesDisponibles(meses);
 
     const { data: gData } = await supabase.from("gastos_distribuidoras").select("*").order("creado_en", { ascending: false });
     const listaGastos = gData || []; setGastos(listaGastos);
 
-    // 3. Cargar Vista de Reportes Mensuales
     const { data: rData } = await supabase.from("reporte_mensual").select("*");
     if (rData) setReportes(rData);
 
-    // 4. CALCULO CAJAS EN TIEMPO REAL
     let totalAlias = 0; let totalBrubank = 0; let totalEfectivo = 0;
     listaPedidos.forEach(p => {
       if (p.estado_pago === 'pagado') {
@@ -125,7 +113,6 @@ export default function AdminMobile() {
   const mostrarToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
   const login = () => { if (clave === CLAVE) setLogueado(true); else setError("Clave incorrecta"); };
 
-  // METODOS DE CONTROL DE ACCIONES DE PRODUCTOS
   const toggleActivo = async (id: number, activo: boolean) => {
     await supabase.from("productos").update({ activo: !activo }).eq("id", id);
     cargarTodo();
@@ -162,8 +149,11 @@ export default function AdminMobile() {
     setSubiendo(true); const noble = Date.now() + "-" + file.name;
     await supabase.storage.from("productos").upload(noble, file);
     const { data } = supabase.storage.from("productos").getPublicUrl(noble);
-    if (editando) setEditando(prev => prev ? { ...prev, [campo]: data.publicUrl } : null);
-    else setNuevo(prev => ({ ...prev, [campo]: data.publicUrl }));
+    if (editando) {
+      setEditando(prev => prev ? { ...prev, [campo]: data.publicUrl } : null);
+    } else {
+      setNuevo(prev => ({ ...prev, [campo]: data.publicUrl }));
+    }
     setSubiendo(false); mostrarToast("Foto subida");
   };
 
@@ -178,8 +168,22 @@ export default function AdminMobile() {
 
   const guardarEdicion = async () => {
     if (!editando) return;
-    await supabase.from("productos").update({ nombre: editando.nombre, descripcion: editando.descripcion, precio: editando.precio, precio_oferta: editando.precio_oferta, oferta_hasta: editando.oferta_hasta, emoji: editando.emoji, imagen: editando.imagen, imagen2: editando.imagen2, imagen3: editando.imagen3, categoria: editando.categoria, stock: editando.stock }).eq("id", editando.id);
-    setEditando(null); cargarTodo();
+    await supabase.from("productos").update({ 
+      nombre: editando.nombre, 
+      descripcion: editando.descripcion, 
+      precio: editando.precio, 
+      precio_oferta: editando.precio_oferta, 
+      oferta_hasta: editando.oferta_hasta, 
+      emoji: editando.emoji, 
+      imagen: editando.imagen, 
+      imagen2: editando.imagen2, 
+      imagen3: editando.imagen3, 
+      categoria: editando.categoria, 
+      stock: editando.stock 
+    }).eq("id", editando.id);
+    setEditando(null); 
+    mostrarToast("Producto actualizado");
+    cargarTodo();
   };
 
   const registrarGasto = async () => {
@@ -298,10 +302,10 @@ export default function AdminMobile() {
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <input value={nuevo.nombre} onChange={e => setNuevo(p => ({ ...p, nombre: e.target.value }))} placeholder="Nombre del producto" style={inputStyle} />
               <input value={nuevo.precio} onChange={e => setNuevo(p => ({ ...p, precio: e.target.value }))} placeholder="Precio Normal ($)" type="number" style={inputStyle} />
-              <textarea value={nuevo.descripcion} onChange={e => setNuevo(p => ({ ...p, descripcion: e.target.value }))} placeholder="Descripción o detalles" rows={2} style={{ ...inputStyle, resize: "none" }} />
+              <textarea value={nuevo.descripcion} onChange={e => setNuevo(p => ({ ...p, descripcion: e.target.value }))} placeholder="Descripción" rows={2} style={{ ...inputStyle, resize: "none" }} />
               
               <div>
-                <div style={{ color: "#888", fontSize: 11, marginBottom: 4 }}>Categoría del Producto</div>
+                <div style={{ color: "#888", fontSize: 11, marginBottom: 4 }}>Categoría</div>
                 <select value={nuevo.categoria} onChange={e => handleSeleccionarCategoria(e.target.value)} style={inputStyle}>
                   {listadoCategorias.map(cat => <option key={cat.id} value={cat.Nombre}>{cat.Nombre}</option>)}
                   <option value="NUEVA" style={{ color: "#ff2d78", fontWeight: "bold" }}>➕ [ CREAR NUEVA CATEGORÍA ]</option>
@@ -310,13 +314,13 @@ export default function AdminMobile() {
 
               {creandoNuevaCat && (
                 <div style={{ background: "#0a0a0a", border: "1px dashed #ff2d78", padding: 12, borderRadius: 10, display: "flex", gap: 8 }}>
-                  <input value={nuevaCatNombre} onChange={e => setNuevaCatNombre(e.target.value)} placeholder="Nombre de categoría" style={{ ...inputStyle, flex: 1 }} />
+                  <input value={nuevaCatNombre} onChange={e => setNuevaCatNombre(e.target.value)} placeholder="Nombre" style={{ ...inputStyle, flex: 1 }} />
                   <button onClick={ejecutarCrearCategoria} style={{ background: "#10B981", color: "#fff", border: "none", borderRadius: 8, padding: "0 12px", fontSize: 12, fontWeight: 700 }}>Guardar</button>
                 </div>
               )}
 
               <input value={nuevo.stock} onChange={e => setNuevo(p => ({ ...p, stock: e.target.value }))} placeholder="Stock Inicial" type="number" style={inputStyle} />
-              <input value={nuevo.emoji} onChange={e => setNuevo(p => ({ ...p, emoji: e.target.value }))} placeholder="Emoji representativo (🛍️)" style={inputStyle} />
+              <input value={nuevo.emoji} onChange={e => setNuevo(p => ({ ...p, emoji: e.target.value }))} placeholder="Emoji (🛍️)" style={inputStyle} />
               
               {["imagen", "imagen2", "imagen3"].map((campo, i) => (
                 <div key={campo}>
@@ -391,7 +395,7 @@ export default function AdminMobile() {
           </div>
         )}
 
-        {/* 4. SOLAPA DE CAJA Y GASTOS */}
+        {/* 4. SOLAPA CAJA */}
         {pestana === 'caja' && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div style={{ background: "#111", border: "1px solid #ff2d78", borderRadius: 16, padding: 14 }}>
@@ -408,7 +412,7 @@ export default function AdminMobile() {
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 <input value={nuevoGasto.distribuidora} onChange={e => setNuevoGasto(p => ({ ...p, distribuidora: e.target.value }))} placeholder="Distribuidora" style={inputStyle} />
                 <input value={nuevoGasto.monto} onChange={e => setNuevoGasto(p => ({ ...p, monto: e.target.value }))} placeholder="Monto ($)" type="number" style={inputStyle} />
-                <input value={nuevoGasto.concepto} onChange={e => setNuevoGasto(p => ({ ...p, concepto: e.target.value }))} placeholder="Concepto (Ej: Lote de alfombras)" style={inputStyle} />
+                <input value={nuevoGasto.concepto} onChange={e => setNuevoGasto(p => ({ ...p, concepto: e.target.value }))} placeholder="Concepto" style={inputStyle} />
                 <select value={nuevoGasto.cuenta_salida} onChange={e => setNuevoGasto(p => ({ ...p, cuenta_salida: e.target.value as any }))} style={inputStyle}>
                   <option value="Efectivo">💸 Efectivo</option>
                   <option value="Alias: carito.shop">📱 Alias: carito.shop</option>
@@ -436,20 +440,74 @@ export default function AdminMobile() {
 
       </div>
 
-      {/* MODAL EDITAR PRODUCTO */}
+      {/* ================= MODAL EDITAR PRODUCTO COMPLETO ================= */}
       {editando && (
         <div style={{ position: "fixed", inset: 0, zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 12 }}>
           <div onClick={() => setEditando(null)} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.85)" }} />
-          <div style={{ position: "relative", background: "#111", border: "1px solid #ff2d78", borderRadius: 20, padding: 16, width: "100%", maxWidth: 400, maxHeight: "85vh", overflowY: "auto" }}>
+          <div style={{ position: "relative", background: "#111", border: "1px solid #ff2d78", borderRadius: 20, padding: 16, width: "100%", maxWidth: 420, maxHeight: "85vh", overflowY: "auto" }}>
             <h3 style={{ ...neon, margin: "0 0 16px 0" }}>Editar Producto</h3>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <input value={editando.nombre} onChange={e => setEditando(p => p ? { ...p, nombre: e.target.value } : null)} style={inputStyle} placeholder="Nombre" />
-              <textarea value={editando.descripcion} onChange={e => setEditando(p => p ? { ...p, descripcion: e.target.value } : null)} rows={2} style={inputStyle} placeholder="Descripción" />
-              <input type="number" value={editando.precio} onChange={e => setEditando(p => p ? { ...p, precio: parseInt(e.target.value) } : null)} style={inputStyle} placeholder="Precio Normal" />
-              <input type="number" value={editando.stock} onChange={e => setEditando(p => p ? { ...p, stock: parseInt(e.target.value) } : null)} style={inputStyle} placeholder="Stock" />
-              <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
+              
+              <div>
+                <div style={{ color: "#888", fontSize: 11, marginBottom: 4 }}>Nombre</div>
+                <input value={editando.nombre} onChange={e => setEditando(p => p ? { ...p, nombre: e.target.value } : null)} style={inputStyle} />
+              </div>
+
+              <div>
+                <div style={{ color: "#888", fontSize: 11, marginBottom: 4 }}>Descripción</div>
+                <textarea value={editando.descripcion} onChange={e => setEditando(p => p ? { ...p, descripcion: e.target.value } : null)} rows={2} style={inputStyle} />
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <div>
+                  <div style={{ color: "#888", fontSize: 11, marginBottom: 4 }}>Precio Normal ($)</div>
+                  <input type="number" value={editando.precio} onChange={e => setEditando(p => p ? { ...p, precio: parseInt(e.target.value) } : null)} style={inputStyle} />
+                </div>
+                <div>
+                  <div style={{ color: "#888", fontSize: 11, marginBottom: 4 }}>Stock Actual</div>
+                  <input type="number" value={editando.stock} onChange={e => setEditando(p => p ? { ...p, stock: parseInt(e.target.value) } : null)} style={inputStyle} />
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <div>
+                  <div style={{ color: "#ff2d78", fontSize: 11, marginBottom: 4, fontWeight: "bold" }}>Precio Oferta</div>
+                  <input type="number" value={editando.precio_oferta || ""} onChange={e => setEditando(p => p ? { ...p, precio_oferta: e.target.value ? parseInt(e.target.value) : null } : null)} style={inputStyle} />
+                </div>
+                <div>
+                  <div style={{ color: "#ff2d78", fontSize: 11, marginBottom: 4, fontWeight: "bold" }}>Oferta Hasta</div>
+                  <input type="datetime-local" value={editando.oferta_hasta ? editando.oferta_hasta.substring(0,16) : ""} onChange={e => setEditando(p => p ? { ...p, oferta_hasta: e.target.value ? e.target.value : null } : null)} style={inputStyle} />
+                </div>
+              </div>
+
+              <div>
+                <div style={{ color: "#888", fontSize: 11, marginBottom: 4 }}>Categoría</div>
+                <select value={editando.categoria} onChange={e => setEditando(p => p ? { ...p, categoria: e.target.value } : null)} style={inputStyle}>
+                  {listadoCategorias.map(cat => <option key={cat.id} value={cat.Nombre}>{cat.Nombre}</option>)}
+                </select>
+              </div>
+
+              {/* GESTIÓN DE IMÁGENES AL EDITAR */}
+              <div style={{ marginTop: 10, borderTop: "1px solid #222", paddingTop: 10 }}>
+                <div style={{ color: "#ff2d78", fontSize: 12, fontWeight: "bold", marginBottom: 8 }}>📷 Fotos del Producto (Modificar / Cargar)</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  {["imagen", "imagen2", "imagen3"].map((campo, i) => (
+                    <div key={campo} style={{ background: "#0a0a0a", padding: 8, borderRadius: 10, border: "1px solid #222" }}>
+                      <div style={{ color: "#888", fontSize: 11, marginBottom: 4 }}>{"Foto " + (i + 1) + (i === 0 ? " (Principal)" : " (Opcional)")}</div>
+                      {editando[campo as keyof Producto] && (
+                        <img src={editando[campo as keyof Producto] as string} style={{ height: 60, borderRadius: 6, objectFit: "cover", marginBottom: 6, display: "block" }} />
+                      )}
+                      <input type="file" accept="image/*" onChange={e => e.target.files && subirFoto(e.target.files[0], campo)} style={{ ...inputStyle, padding: 6, fontSize: 11, color: "#aaa" }} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {subiendo && <div style={{ color: "#ff2d78", fontSize: 12, textAlign: "center", marginTop: 4 }}>Subiendo nueva imagen al servidor...</div>}
+
+              <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
                 <button onClick={() => setEditando(null)} style={{ ...buttonStyle, background: "#222" }}>Cerrar</button>
-                <button onClick={guardarEdicion} style={buttonStyle}>Guardar</button>
+                <button onClick={guardarEdicion} style={buttonStyle}>Guardar Cambios</button>
               </div>
             </div>
           </div>
