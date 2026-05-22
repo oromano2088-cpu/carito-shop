@@ -53,6 +53,7 @@ export default function AdminMobileCompleto() {
   const [coincidenciasAlta, setCoincidenciasAlta] = useState<Producto[]>([]);
   const [filtroMes, setFiltroMes] = useState<string>("Todos");
   const [mesesDisponibles, setMesesDisponibles] = useState<string[]>([]);
+  const [confirmarEliminar, setConfirmarEliminar] = useState<Producto | null>(null);
 
   useEffect(() => { if (logueado) { cargarTodo(); } }, [logueado]);
 
@@ -96,6 +97,13 @@ export default function AdminMobileCompleto() {
   const login = () => { if (clave === CLAVE) setLogueado(true); else setError("Clave incorrecta"); };
   const toggleActivo = async (id: number, activo: boolean) => { await supabase.from("productos").update({ activo: !activo }).eq("id", id); cargarTodo(); };
   const actualizarStock = async (id: number, stockActual: number, cambio: number) => { await supabase.from("productos").update({ stock: Math.max(0, stockActual + cambio) }).eq("id", id); cargarTodo(); };
+
+  const eliminarProducto = async (id: number) => {
+    await supabase.from("productos").delete().eq("id", id);
+    setConfirmarEliminar(null);
+    mostrarToast("Producto eliminado");
+    cargarTodo();
+  };
 
   const handleCambioNombreAlta = (texto: string) => {
     setNuevo(prev => ({ ...prev, nombre: texto }));
@@ -247,6 +255,28 @@ export default function AdminMobileCompleto() {
         </div>
       )}
 
+      {/* MODAL CONFIRMAR ELIMINAR */}
+      {confirmarEliminar && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div onClick={() => setConfirmarEliminar(null)} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.85)" }} />
+          <div style={{ position: "relative", background: "#111", border: "2px solid #EF4444", borderRadius: 20, padding: 28, width: "100%", maxWidth: 340, textAlign: "center" }}>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>🗑️</div>
+            <h3 style={{ color: "#EF4444", fontWeight: 900, fontSize: 18, marginBottom: 10 }}>Eliminar producto</h3>
+            <p style={{ color: "#888", fontSize: 14, marginBottom: 6 }}>Estas por eliminar:</p>
+            <p style={{ color: "#fff", fontWeight: 700, fontSize: 15, marginBottom: 20 }}>{confirmarEliminar.nombre}</p>
+            <p style={{ color: "#555", fontSize: 12, marginBottom: 24 }}>Esta accion no se puede deshacer.</p>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => setConfirmarEliminar(null)} style={{ flex: 1, padding: 13, background: "#222", border: "none", borderRadius: 12, color: "#fff", fontWeight: 700, cursor: "pointer" }}>
+                Cancelar
+              </button>
+              <button onClick={() => eliminarProducto(confirmarEliminar.id)} style={{ flex: 1, padding: 13, background: "linear-gradient(135deg, #EF4444, #B91C1C)", border: "none", borderRadius: 12, color: "#fff", fontWeight: 800, cursor: "pointer" }}>
+                Si, eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div style={{ padding: "8px 4px", borderBottom: "1px solid #222", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
           <h1 style={{ ...neon, fontSize: 19, fontWeight: 900, margin: 0 }}>CARITO.SHOP - Admin</h1>
@@ -325,7 +355,7 @@ export default function AdminMobileCompleto() {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: "bold", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.nombre}</div>
                   <div style={{ fontSize: 12, color: "#ff2d78", fontWeight: 800 }}>{"$" + (p.precio_oferta || p.precio).toLocaleString("es-AR")}</div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
                     <button onClick={() => actualizarStock(p.id, p.stock, -1)} style={{ background: "#222", border: "1px solid #333", color: "#fff", width: 24, height: 24, borderRadius: 4, cursor: "pointer" }}>-</button>
                     <span style={{ fontSize: 12, color: "#aaa" }}>{"Stock: " + p.stock}</span>
                     <button onClick={() => actualizarStock(p.id, p.stock, 1)} style={{ background: "#222", border: "1px solid #333", color: "#fff", width: 24, height: 24, borderRadius: 4, cursor: "pointer" }}>+</button>
@@ -334,7 +364,14 @@ export default function AdminMobileCompleto() {
                     </button>
                   </div>
                 </div>
-                <button onClick={() => setEditando(p)} style={{ padding: "6px 10px", background: "#1D4ED8", color: "#fff", border: "none", borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Editar</button>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }}>
+                  <button onClick={() => setEditando(p)} style={{ padding: "6px 10px", background: "#1D4ED8", color: "#fff", border: "none", borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                    Editar
+                  </button>
+                  <button onClick={() => setConfirmarEliminar(p)} style={{ padding: "6px 10px", background: "#7F1D1D", color: "#fff", border: "none", borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                    🗑️ Borrar
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -461,7 +498,6 @@ export default function AdminMobileCompleto() {
                 </div>
               </div>
             </div>
-
             <div style={{ background: "#111", borderRadius: 16, padding: 14, border: "1px solid #333" }}>
               <h3 style={{ fontSize: 14, margin: "0 0 12px 0" }}>Registrar Gasto</h3>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -476,7 +512,6 @@ export default function AdminMobileCompleto() {
                 <button onClick={registrarGasto} style={{ ...buttonStyle, background: "linear-gradient(135deg, #EF4444, #B91C1C)" }}>Registrar Gasto</button>
               </div>
             </div>
-
             <div style={{ background: "#111", borderRadius: 16, padding: 14, border: "1px solid #333" }}>
               <h3 style={{ fontSize: 14, margin: "0 0 12px 0" }}>Reportes Mensuales</h3>
               {reportes.length === 0 && <div style={{ color: "#444", fontSize: 12, textAlign: "center" }}>Sin reportes aun</div>}
