@@ -42,7 +42,6 @@ export default function Home() {
   const [ofertaActiva, setOfertaActiva] = useState<Producto | null>(null);
   const [tiempoRestante, setTiempoRestante] = useState({ dias: 0, horas: 0, minutes: 0, segundos: 0 });
 
-  // ESTADO PARA EL BUSCADOR
   const [busqueda, setBusqueda] = useState("");
 
   useEffect(() => { init(); }, []);
@@ -108,7 +107,6 @@ export default function Home() {
     setCargando(false);
   };
 
-  // LÓGICA FILTRADA UNIFICADA
   const listaFiltrada = (() => {
     let productosFiltrados = lista;
 
@@ -154,7 +152,7 @@ export default function Home() {
     const msg = "Hola CARITO.SHOP!\n" + carrito.map(i => {
       const pFinal = i.precio_oferta && i.oferta_hasta && new Date(i.oferta_hasta).getTime() > new Date().getTime() ? i.precio_oferta : i.precio;
       return i.nombre + " x" + i.cantidad + " ($" + pFinal.toLocaleString("es-AR") + ")";
-    }).join("\n") + "\nTotal: $" + totalP.toLocaleString("es-AR");
+    }).join("\n") + "\nTotal: $" + totalP.toLocaleString("es-AR") + "\n\n*Alias de Pago (Brubank):* carito.shop\n*(Por favor, enviame el comprobante por acá)*";
     window.open("https://wa.me/5491133851488?text=" + encodeURIComponent(msg), "_blank");
   };
 
@@ -177,7 +175,10 @@ export default function Home() {
       total: totalP,
       estado: "pendiente",
     });
-    const msg = "Hola CARITO.SHOP! Hice un pedido:\n" + productos + "\nTotal: $" + totalP.toLocaleString("es-AR") + "\nNombre: " + form.nombre + "\nTel: " + form.telefono + "\nDirec: " + form.direccion;
+    
+    // MODIFICADO: Se añade la instrucción del Alias en el mensaje automático que viaja a WhatsApp
+    const msg = `Hola CARITO.SHOP! Hice un pedido:\n${productos}\nTotal: $${totalP.toLocaleString("es-AR")}\nNombre: ${form.nombre}\nTel: ${form.telefono}\nDirec: ${form.direccion}\n\n-------------------------\n*DATOS DE TRANSFERENCIA:*\n💰 *Alias Brubank:* carito.shop\n\n*(Por favor, realiza la transferencia y adjuntame el comprobante por este medio)*`;
+    
     window.open("https://wa.me/5491133851488?text=" + encodeURIComponent(msg), "_blank");
     setEnviando(false);
     setPedidoOk(true);
@@ -254,14 +255,22 @@ export default function Home() {
         </div>
       )}
 
+      {/* MODIFICADO: CARTEL FLOTANTE CON EL ALIAS VISIBLE EN LA APP */}
       {pedidoOk && (
         <div style={{ position: "fixed", inset: 0, zIndex: 2000, background: "rgba(0,0,0,0.9)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div style={{ background: "#111", border: "1px solid #ff2d78", borderRadius: 20, padding: 40, textAlign: "center", maxWidth: 320 }}>
-            <div style={{ fontSize: 60, marginBottom: 16 }}>🎉</div>
-            <h2 style={{ ...neon, fontSize: 22, fontWeight: 900, marginBottom: 12 }}>Pedido confirmado</h2>
-            <p style={{ color: "#888", fontSize: 14, marginBottom: 24 }}>Te vamos a contactar pronto para coordinar el pago y envio</p>
+          <div style={{ background: "#111", border: "1px solid #ff2d78", borderRadius: 20, padding: 30, textAlign: "center", maxWidth: 340, width: "90%" }}>
+            <div style={{ fontSize: 50, marginBottom: 12 }}>🎉</div>
+            <h2 style={{ ...neon, fontSize: 20, fontWeight: 900, marginBottom: 10 }}>Pedido registrado</h2>
+            
+            <div style={{ background: "#050505", border: "1px dashed #ff2d78", borderRadius: 12, padding: 14, marginBottom: 20 }}>
+              <p style={{ color: "#aaa", fontSize: 13, margin: "0 0 6px 0" }}>Paga mediante transferencia:</p>
+              <div style={{ color: "#fff", fontWeight: 800, fontSize: 16, letterSpacing: 1 }}>Alias: <span style={{ color: "#ff2d78" }}>carito.shop</span></div>
+              <p style={{ color: "#555", fontSize: 11, margin: "6px 0 0 0" }}>Banco: Brubank</p>
+            </div>
+
+            <p style={{ color: "#888", fontSize: 13, marginBottom: 20 }}>Serás redirigido a WhatsApp para enviar los detalles y adjuntar tu comprobante.</p>
             <button onClick={() => setPedidoOk(false)} style={{ width: "100%", padding: 13, background: "linear-gradient(135deg, #ff2d78, #ff0055)", border: "none", borderRadius: 12, color: "#fff", fontWeight: 800, cursor: "pointer" }}>
-              Seguir comprando
+              Entendido
             </button>
           </div>
         </div>
@@ -396,7 +405,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* CATEGORÍAS (CORREGIDO) */}
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "20px 20px 0", display: "flex", gap: 10, overflowX: "auto", paddingBottom: 10 }}>
         {categorias.map(cat => (
           <button key={cat} onClick={() => setCategoriaActiva(cat)} style={{
@@ -562,7 +570,7 @@ export default function Home() {
                       Agregar al carrito
                     </button>
                     <button onClick={() => {
-                      const msg = "Hola CARITO.SHOP! Me interesa: " + p.nombre + " - $" + precioMostrar.toLocaleString("es-AR");
+                      const msg = "Hola CARITO.SHOP! Me interesa: " + p.nombre + " - $" + precioMostrar.toLocaleString("es-AR") + "\n\n*Alias de Pago (Brubank):* carito.shop\n*(Por favor, enviame el comprobante por acá)*";
                       window.open("https://wa.me/5491133851488?text=" + encodeURIComponent(msg), "_blank");
                     }} style={{ width: "100%", padding: 10, background: "transparent", border: "1px solid #25D366", borderRadius: 12, color: "#25D366", fontWeight: 700, cursor: "pointer", marginBottom: 8 }}>
                       💬 Consultar por WhatsApp
