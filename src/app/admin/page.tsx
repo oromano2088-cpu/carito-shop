@@ -40,7 +40,10 @@ export default function AdminMobile() {
   
   const [pestana, setPestana] = useState<'catalogo' | 'alta' | 'ventas' | 'caja'>('catalogo');
 
+  // ESTADOS CONTABLES DE CAJAS DISPONIBLES
   const [cajas, setCajas] = useState({ alias: 0, brubankSenora: 0, efectivo: 0 });
+
+  // ESTADOS GENERALES
   const [productos, setProductos] = useState<Producto[]>([]);
   const [listadoCategorias, setListadoCategorias] = useState<Categoria[]>([]);
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
@@ -49,6 +52,7 @@ export default function AdminMobile() {
   const [cargando, setCargando] = useState(false);
   const [toast, setToast] = useState("");
 
+  // ESTADOS FORMULARIOS
   const [nuevo, setNuevo] = useState({ nombre: "", descripcion: "", precio: "", precio_oferta: "", oferta_hasta: "", emoji: "🛍️", imagen: "", imagen2: "", imagen3: "", categoria: "", stock: "0" });
   const [creandoNuevaCat, setCreandoNuevaCat] = useState(false);
   const [nuevaCatNombre, setNuevaCatNombre] = useState("");
@@ -56,6 +60,11 @@ export default function AdminMobile() {
   const [editando, setEditando] = useState<Producto | null>(null);
   const [nuevoGasto, setNuevoGasto] = useState({ distribuidora: "", monto: "", concepto: "", cuenta_salida: "Efectivo" as any });
 
+  // ESTADOS PARA BUSCADORES INTERNOS (NUEVO)
+  const [busquedaCatalogo, setBusquedaCatalogo] = useState("");
+  const [coincidenciasAlta, setCoincidenciasAlta] = useState<Producto[]>([]);
+
+  // FILTROS Y FINANCIACIÓN
   const [filtroMes, setFiltroMes] = useState<string>("Todos");
   const [pedidoFinanciando, setPedidoFinanciando] = useState<number | null>(null);
   const [planCuotas, setPlanCuotas] = useState({ cantidad: 3, anticipo: 200000, recargoPorCuota: 10, cuenta: "Efectivo" });
@@ -113,6 +122,21 @@ export default function AdminMobile() {
   const mostrarToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
   const login = () => { if (clave === CLAVE) setLogueado(true); else setError("Clave incorrecta"); };
 
+  // ESCUCHA DEL INPUT NOMBRE EN EL ALTA PARA MOSTRAR COINCIDENCIASPreventivas (NUEVO)
+  const handleCambioNombreAlta = (texto: string) => {
+    setNuevo(prev => ({ ...prev, nombre: texto }));
+    
+    if (texto.trim().length < 2) {
+      setCoincidenciasAlta([]);
+      return;
+    }
+
+    const query = texto.toLowerCase();
+    // Filtra si contiene la palabra que estás escribiendo en el catálogo actual
+    const encontradas = productos.filter(p => p.nombre.toLowerCase().includes(query));
+    setCoincidenciasAlta(encontradas);
+  };
+
   const toggleActivo = async (id: number, activo: boolean) => {
     await supabase.from("productos").update({ activo: !activo }).eq("id", id);
     cargarTodo();
@@ -162,6 +186,7 @@ export default function AdminMobile() {
     await supabase.from("productos").insert({ nombre: nuevo.nombre, descripcion: nuevo.descripcion, precio: parseInt(nuevo.precio), precio_oferta: nuevo.precio_oferta ? parseInt(nuevo.precio_oferta) : null, oferta_hasta: nuevo.oferta_hasta ? nuevo.oferta_hasta : null, emoji: nuevo.emoji, imagen: nuevo.imagen, imagen2: nuevo.imagen2, imagen3: nuevo.imagen3, categoria: nuevo.categoria, stock: parseInt(nuevo.stock) || 0, activo: true });
     mostrarToast("Producto publicado");
     setNuevo({ nombre: "", descripcion: "", precio: "", precio_oferta: "", oferta_hasta: "", emoji: "🛍️", imagen: "", imagen2: "", imagen3: "", categoria: listadoCategorias[0]?.Nombre || "", stock: "0" });
+    setCoincidenciasAlta([]);
     setPestana('catalogo');
     cargarTodo();
   };
@@ -169,17 +194,10 @@ export default function AdminMobile() {
   const guardarEdicion = async () => {
     if (!editando) return;
     await supabase.from("productos").update({ 
-      nombre: editando.nombre, 
-      descripcion: editando.descripcion, 
-      precio: editando.precio, 
-      precio_oferta: editando.precio_oferta, 
-      oferta_hasta: editando.oferta_hasta, 
-      emoji: editando.emoji, 
-      imagen: editando.imagen, 
-      imagen2: editando.imagen2, 
-      imagen3: editando.imagen3, 
-      categoria: editando.categoria, 
-      stock: editando.stock 
+      nombre: editando.nombre, descripcion: editando.descripcion, precio: editando.precio, 
+      precio_oferta: editando.precio_oferta, oferta_hasta: editando.oferta_hasta, emoji: editando.emoji, 
+      imagen: editando.imagen, imagen2: editando.imagen2, imagen3: editando.imagen3, 
+      categoria: editando.categoria, stock: editando.stock 
     }).eq("id", editando.id);
     setEditando(null); 
     mostrarToast("Producto actualizado");
@@ -226,6 +244,12 @@ export default function AdminMobile() {
     await supabase.from("pedidos").update(actualizar).eq("id", pedido.id); cargarTodo();
   };
 
+  // FILTRADO LÓGICO DEL LISTADO DE CATÁLOGO CON BUSCADOR INTERNO (NUEVO)
+  const productosFiltradosCatalogo = productos.filter(p => {
+    if (busquedaCatalogo.trim() === "") return true;
+    return p.nombre.toLowerCase().includes(busquedaCatalogo.toLowerCase()) || p.categoria.toLowerCase().includes(busquedaCatalogo.toLowerCase());
+  });
+
   const pedidosFiltrados = pedidos.filter(p => filtroMes === "Todos" ? true : p.creado_en.startsWith(filtroMes));
 
   if (!logueado) return (
@@ -268,11 +292,23 @@ export default function AdminMobile() {
       {/* CONTENIDO DE CADA SOLAPA */}
       <div style={{ maxWidth: 600, margin: "0 auto" }}>
         
-        {/* 1. SOLAPA CATÁLOGO */}
+        {/* 1. SOLAPA CATÁLOGO (CON FILTRO INTEGRADO) */}
         {pestana === 'catalogo' && (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <h2 style={{ fontSize: 16, margin: "4px 0" }}>Mis Productos ({productos.length})</h2>
-            {productos.map(p => (
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+              <h2 style={{ fontSize: 16, margin: 0 }}>Mis Productos ({productosFiltradosCatalogo.length})</h2>
+            </div>
+            
+            {/* MINI BUSCADOR EN EL CATÁLOGO (NUEVO) */}
+            <input 
+              type="text" 
+              value={busquedaCatalogo} 
+              onChange={e => setBusquedaCatalogo(e.target.value)} 
+              placeholder="🔍 Filtrar catálogo por nombre o cat..." 
+              style={{ ...inputStyle, padding: 10, fontSize: 13, border: "1px solid #333", marginBottom: 6 }} 
+            />
+
+            {productosFiltradosCatalogo.map(p => (
               <div key={p.id} style={{ background: "#111", borderRadius: 14, padding: 12, display: "flex", gap: 12, alignItems: "center", border: "1px solid #222" }}>
                 <div style={{ width: 50, height: 50, borderRadius: 8, background: "#0a0a0a", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden" }}>
                   {p.imagen ? <img src={p.imagen} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ fontSize: 24 }}>{p.emoji}</span>}
@@ -295,12 +331,38 @@ export default function AdminMobile() {
           </div>
         )}
 
-        {/* 2. SOLAPA ALTA DE PRODUCTO */}
+        {/* 2. SOLAPA ALTA DE PRODUCTO (CON DETECTOR PREVENTIVO) */}
         {pestana === 'alta' && (
           <div style={{ background: "#111", borderRadius: 16, padding: 16, border: "1px solid #ff2d78" }}>
             <h2 style={{ fontSize: 16, margin: "0 0 16px 0", ...neon }}>Agregar Producto Nuevo</h2>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <input value={nuevo.nombre} onChange={e => setNuevo(p => ({ ...p, nombre: e.target.value }))} placeholder="Nombre del producto" style={inputStyle} />
+              
+              {/* CASILLERO NOMBRE CON DETECTOR (MODIFICADO) */}
+              <div>
+                <div style={{ color: "#888", fontSize: 11, marginBottom: 4 }}>Nombre del Producto</div>
+                <input 
+                  value={nuevo.nombre} 
+                  onChange={e => handleCambioNombreAlta(e.target.value)} 
+                  placeholder="Ej: Cocina Escorial 4H" 
+                  style={inputStyle} 
+                />
+              </div>
+
+              {/* BLOQUE DINÁMICO DE COINCIDENCIAS DETECTADAS (NUEVO) */}
+              {coincidenciasAlta.length > 0 && (
+                <div style={{ background: "#1c0510", border: "1px dashed #ff2d78", padding: 10, borderRadius: 10 }}>
+                  <div style={{ fontSize: 12, color: "#ff2d78", fontWeight: "bold", marginBottom: 6 }}>⚠️ Productos similares ya cargados:</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    {coincidenciasAlta.map(c => (
+                      <div key={c.id} style={{ fontSize: 12, color: "#ccc", display: "flex", justifyContent: "space-between", background: "#0a0a0a", padding: "6px 10px", borderRadius: 6 }}>
+                        <span>{c.emoji} <strong>{c.nombre}</strong></span>
+                        <span style={{ color: "#666" }}>Stock actual: {c.stock}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <input value={nuevo.precio} onChange={e => setNuevo(p => ({ ...p, precio: e.target.value }))} placeholder="Precio Normal ($)" type="number" style={inputStyle} />
               <textarea value={nuevo.descripcion} onChange={e => setNuevo(p => ({ ...p, descripcion: e.target.value }))} placeholder="Descripción" rows={2} style={{ ...inputStyle, resize: "none" }} />
               
@@ -440,7 +502,7 @@ export default function AdminMobile() {
 
       </div>
 
-      {/* ================= MODAL EDITAR PRODUCTO COMPLETO ================= */}
+      {/* MODAL EDITAR PRODUCTO */}
       {editando && (
         <div style={{ position: "fixed", inset: 0, zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 12 }}>
           <div onClick={() => setEditando(null)} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.85)" }} />
@@ -503,7 +565,7 @@ export default function AdminMobile() {
                 </div>
               </div>
 
-              {subiendo && <div style={{ color: "#ff2d78", fontSize: 12, textAlign: "center", marginTop: 4 }}>Subiendo nueva imagen al servidor...</div>}
+              {subiendo && <div style={{ color: "#ff2d78", fontSize: 12, textAlign: "center", marginTop: 4 }}>Subiendo nueva imagen...</div>}
 
               <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
                 <button onClick={() => setEditando(null)} style={{ ...buttonStyle, background: "#222" }}>Cerrar</button>
