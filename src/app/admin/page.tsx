@@ -17,7 +17,7 @@ type Pedido = {
 };
 type Gasto = {
   id: number; distribuidora: string; monto: number; concepto: string;
-  cuenta_salida: string; creado_en: string;
+  cuenta_salida: string; creado_en: string; comprobante_url?: string;
 };
 type Reporte = {
   mes: string; total_pedidos: number; total_cobrado: number; total_deuda: number;
@@ -47,13 +47,23 @@ export default function AdminMobileCompleto() {
   const [nuevaCatNombre, setNuevaCatNombre] = useState("");
   const [subiendo, setSubiendo] = useState(false);
   const [editando, setEditando] = useState<Producto | null>(null);
-  const [nuevoGasto, setNuevoGasto] = useState({ distribuidora: "", monto: "", concepto: "", cuenta_salida: "Efectivo" });
   const [ventaManual, setVentaManual] = useState({ cliente: "", telefono: "", direccion: "", productoId: "", tipoPago: "Efectivo", esDropshipping: false });
   const [busquedaCatalogo, setBusquedaCatalogo] = useState("");
   const [coincidenciasAlta, setCoincidenciasAlta] = useState<Producto[]>([]);
   const [filtroMes, setFiltroMes] = useState<string>("Todos");
   const [mesesDisponibles, setMesesDisponibles] = useState<string[]>([]);
   const [confirmarEliminar, setConfirmarEliminar] = useState<Producto | null>(null);
+
+  // GESTIÓN CONTABLE MANUAL
+  const [tipoMovimiento, setTipoMovimiento] = useState<'ingreso' | 'egreso'>('egreso');
+  const [movimientoManual, setMovimientoManual] = useState({
+    entidad: "", 
+    monto: "",
+    concepto: "",
+    cuenta: "Efectivo",
+    comprobanteUrl: ""
+  });
+  const [subiendoComprobante, setSubiendoComprobante] = useState(false);
 
   useEffect(() => { if (logueado) { cargarTodo(); } }, [logueado]);
 
@@ -71,12 +81,16 @@ export default function AdminMobileCompleto() {
     setPedidos(listaPedidos);
     const meses = Array.from(new Set(listaPedidos.map((p: Pedido) => p.creado_en ? p.creado_en.substring(0, 7) : ""))) as string[];
     setMesesDisponibles(meses.filter(Boolean));
+    
     const { data: gData } = await supabase.from("gastos_distribuidoras").select("*").order("creado_en", { ascending: false });
     const listaGastos = gData || [];
     setGastos(listaGastos);
+    
     const { data: rData } = await supabase.from("reporte_mensual").select("*");
     if (rData) setReportes(rData);
+    
     let totalAlias = 0; let totalBrubank = 0; let totalEfectivo = 0;
+    
     listaPedidos.forEach((p: Pedido) => {
       if (p.estado_pago === 'pagado') {
         if (p.cuenta_ingreso === 'Alias: carito.shop') totalAlias += p.total;
@@ -84,11 +98,20 @@ export default function AdminMobileCompleto() {
         if (p.cuenta_ingreso === 'Efectivo') totalEfectivo += p.total;
       }
     });
+
     listaGastos.forEach((g: Gasto) => {
-      if (g.cuenta_salida === 'Alias: carito.shop') totalAlias -= g.monto;
-      if (g.cuenta_salida === 'Brubank Señora (DIARIO.ITALIA.ARENA)') totalBrubank -= g.monto;
-      if (g.cuenta_salida === 'Efectivo') totalEfectivo -= g.monto;
+      const esIngresoManual = g.concepto && g.concepto.includes("[INGRESO MANUAL]");
+      if (g.cuenta_salida === 'Alias: carito.shop') {
+        if (esIngresoManual) totalAlias += g.monto; else totalAlias -= g.monto;
+      }
+      if (g.cuenta_salida === 'Brubank Señora (DIARIO.ITALIA.ARENA)') {
+        if (esIngresoManual) totalBrubank += g.monto; else totalBrubank -= g.monto;
+      }
+      if (g.cuenta_salida === 'Efectivo') {
+        if (esIngresoManual) totalEfectivo += g.monto; else totalEfectivo -= g.monto;
+      }
     });
+
     setCajas({ alias: totalAlias, brubankSenora: totalBrubank, efectivo: totalEfectivo });
     setCargando(false);
   };
@@ -135,6 +158,16 @@ export default function AdminMobileCompleto() {
     setSubiendo(false); mostrarToast("Foto subida");
   };
 
+  const subirFotoComprobante = async (file: File) => {
+    setSubiendoComprobante(true);
+    const nombreFile = "comprobante-" + Date.now() + "-" + file.name;
+    await supabase.storage.from("productos").upload(nombreFile, file);
+    const { data } = supabase.storage.from("productos").getPublicUrl(nombreFile);
+    setMovimientoManual(prev => ({ ...prev, comprobanteUrl: data.publicUrl }));
+    setSubiendoComprobante(false);
+    mostrarToast("Comprobante adjuntado");
+  };
+
   const agregar = async () => {
     if (!nuevo.nombre || !nuevo.precio) { mostrarToast("Completa nombre y precio"); return; }
     await supabase.from("productos").insert({
@@ -158,14 +191,24 @@ export default function AdminMobileCompleto() {
     setEditando(null); mostrarToast("Producto actualizado"); cargarTodo();
   };
 
-  const registrarGasto = async () => {
-    if (!nuevoGasto.distribuidora || !nuevoGasto.monto) { mostrarToast("Completa los datos"); return; }
+  const ejecutarRegistroContableManual = async () => {
+    if (!movimientoManual.entidad || !movimientoManual.monto) { mostrarToast("Completa los campos obligatorios"); return; }
+    
+    const conceptoFinal = tipoMovimiento === 'ingreso' 
+      ? `[INGRESO MANUAL] - ${movimientoManual.concepto || 'Pago recibido'}` 
+      : movimientoManual.concepto || 'Compra/Gasto';
+
     await supabase.from("gastos_distribuidoras").insert({
-      distribuidora: nuevoGasto.distribuidora, monto: parseInt(nuevoGasto.monto),
-      concepto: nuevoGasto.concepto, cuenta_salida: nuevoGasto.cuenta_salida,
+      distribuidora: movimientoManual.entidad,
+      monto: parseInt(movimientoManual.monto),
+      concepto: conceptoFinal,
+      cuenta_salida: movimientoManual.cuenta,
+      comprobante_url: movimientoManual.comprobanteUrl || null
     });
-    setNuevoGasto({ distribuidora: "", monto: "", concepto: "", cuenta_salida: "Efectivo" });
-    mostrarToast("Gasto registrado"); cargarTodo();
+
+    setMovimientoManual({ entidad: "", monto: "", concepto: "", cuenta: "Efectivo", comprobanteUrl: "" });
+    mostrarToast(tipoMovimiento === 'ingreso' ? "Ingreso asentado" : "Egreso asentado"); 
+    cargarTodo();
   };
 
   const cambiarEstadoPago = async (id: number, nuevoEstado: string) => { await supabase.from("pedidos").update({ estado_pago: nuevoEstado }).eq("id", id); cargarTodo(); };
@@ -262,15 +305,15 @@ export default function AdminMobileCompleto() {
           <div style={{ position: "relative", background: "#111", border: "2px solid #EF4444", borderRadius: 20, padding: 28, width: "100%", maxWidth: 340, textAlign: "center" }}>
             <div style={{ fontSize: 48, marginBottom: 12 }}>🗑️</div>
             <h3 style={{ color: "#EF4444", fontWeight: 900, fontSize: 18, marginBottom: 10 }}>Eliminar producto</h3>
-            <p style={{ color: "#888", fontSize: 14, marginBottom: 6 }}>Estas por eliminar:</p>
+            <p style={{ color: "#888", fontSize: 14, marginBottom: 6 }}>Estás por eliminar:</p>
             <p style={{ color: "#fff", fontWeight: 700, fontSize: 15, marginBottom: 20 }}>{confirmarEliminar.nombre}</p>
-            <p style={{ color: "#555", fontSize: 12, marginBottom: 24 }}>Esta accion no se puede deshacer.</p>
-            <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => setConfirmarEliminar(null)} style={{ flex: 1, padding: 13, background: "#222", border: "none", borderRadius: 12, color: "#fff", fontWeight: 700, cursor: "pointer" }}>
-                Cancelar
+            <p style={{ color: "#aaa", fontSize: 12, marginBottom: 24 }}>Esta acción no se puede deshacer.</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <button onClick={() => eliminarProducto(confirmarEliminar.id)} style={{ width: "100%", padding: 14, background: "linear-gradient(135deg, #EF4444, #B91C1C)", border: "none", borderRadius: 12, color: "#fff", fontWeight: 800, cursor: "pointer", fontSize: 13 }}>
+                Sí, deseo eliminar el producto de la lista de productos.
               </button>
-              <button onClick={() => eliminarProducto(confirmarEliminar.id)} style={{ flex: 1, padding: 13, background: "linear-gradient(135deg, #EF4444, #B91C1C)", border: "none", borderRadius: 12, color: "#fff", fontWeight: 800, cursor: "pointer" }}>
-                Si, eliminar
+              <button onClick={() => setConfirmarEliminar(null)} style={{ width: "100%", padding: 12, background: "#222", border: "none", borderRadius: 12, color: "#fff", fontWeight: 700, cursor: "pointer", fontSize: 13 }}>
+                Cancelar
               </button>
             </div>
           </div>
@@ -479,8 +522,11 @@ export default function AdminMobileCompleto() {
           </div>
         )}
 
+        {/* 4. SOLAPA CAJA */}
         {pestana === 'caja' && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            
+            {/* PANEL DE SALDOS TOTALES */}
             <div style={{ background: "#111", border: "1px solid #ff2d78", borderRadius: 16, padding: 14 }}>
               <h3 style={{ fontSize: 14, margin: "0 0 12px 0", color: "#ff2d78" }}>Saldos Disponibles</h3>
               <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 13 }}>
@@ -498,22 +544,122 @@ export default function AdminMobileCompleto() {
                 </div>
               </div>
             </div>
+
+            {/* FORMULARIO AVANZADO DE INGRESOS / EGRESOS MANUALES */}
             <div style={{ background: "#111", borderRadius: 16, padding: 14, border: "1px solid #333" }}>
-              <h3 style={{ fontSize: 14, margin: "0 0 12px 0" }}>Registrar Gasto</h3>
+              <h3 style={{ fontSize: 14, margin: "0 0 14px 0", ...neon }}>Gestión Contable Directa</h3>
+              
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 14 }}>
+                <button 
+                  onClick={() => setTipoMovimiento('ingreso')} 
+                  style={{ padding: 10, borderRadius: 8, border: "none", fontWeight: 700, fontSize: 12, background: tipoMovimiento === 'ingreso' ? "#10B981" : "#222", color: "#fff", cursor: "pointer" }}
+                >
+                  🟢 Cargar Ingreso (Pago)
+                </button>
+                <button 
+                  onClick={() => setTipoMovimiento('egreso')} 
+                  style={{ padding: 10, borderRadius: 8, border: "none", fontWeight: 700, fontSize: 12, background: tipoMovimiento === 'egreso' ? "#EF4444" : "#222", color: "#fff", cursor: "pointer" }}
+                >
+                  🔴 Cargar Egreso (Gasto)
+                </button>
+              </div>
+
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                <input value={nuevoGasto.distribuidora} onChange={e => setNuevoGasto(p => ({ ...p, distribuidora: e.target.value }))} placeholder="Distribuidora / Proveedor" style={inputStyle} />
-                <input value={nuevoGasto.monto} onChange={e => setNuevoGasto(p => ({ ...p, monto: e.target.value }))} placeholder="Monto" type="number" style={inputStyle} />
-                <input value={nuevoGasto.concepto} onChange={e => setNuevoGasto(p => ({ ...p, concepto: e.target.value }))} placeholder="Concepto" style={inputStyle} />
-                <select value={nuevoGasto.cuenta_salida} onChange={e => setNuevoGasto(p => ({ ...p, cuenta_salida: e.target.value }))} style={inputStyle}>
-                  <option value="Efectivo">Efectivo</option>
-                  <option value="Alias: carito.shop">Alias: carito.shop</option>
-                  <option value="Brubank Señora (DIARIO.ITALIA.ARENA)">Brubank Señora</option>
+                <input 
+                  value={movimientoManual.entidad} 
+                  onChange={e => setMovimientoManual(p => ({ ...p, entidad: e.target.value }))} 
+                  placeholder={tipoMovimiento === 'ingreso' ? "Nombre del Cliente / Origen" : "Distribuidora / Proveedor"} 
+                  style={inputStyle} 
+                />
+                <input 
+                  value={movimientoManual.monto} 
+                  onChange={e => setMovimientoManual(p => ({ ...p, monto: e.target.value }))} 
+                  placeholder="Monto ($)" 
+                  type="number" 
+                  style={inputStyle} 
+                />
+                <input 
+                  value={movimientoManual.concepto} 
+                  onChange={e => setMovimientoManual(p => ({ ...p, concepto: e.target.value }))} 
+                  placeholder="Concepto / Detalle" 
+                  style={inputStyle} 
+                />
+                
+                <select 
+                  value={movimientoManual.cuenta} 
+                  onChange={e => setMovimientoManual(p => ({ ...p, cuenta: e.target.value }))} 
+                  style={inputStyle}
+                >
+                  <option value="Efectivo">💵 Caja: Efectivo</option>
+                  <option value="Alias: carito.shop">📱 Caja: Alias carito.shop</option>
+                  <option value="Brubank Señora (DIARIO.ITALIA.ARENA)">👩 Caja: Brubank Señora</option>
                 </select>
-                <button onClick={registrarGasto} style={{ ...buttonStyle, background: "linear-gradient(135deg, #EF4444, #B91C1C)" }}>Registrar Gasto</button>
+
+                <div>
+                  <div style={{ color: "#888", fontSize: 11, marginBottom: 4 }}>Adjuntar Factura o Comprobante de Pago</div>
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    onChange={e => e.target.files && subirFotoComprobante(e.target.files[0])} 
+                    style={{ ...inputStyle, fontSize: 12, color: "#aaa" }} 
+                  />
+                  {subiendoComprobante && <div style={{ color: "#ff2d78", fontSize: 11, marginTop: 4 }}>Subiendo archivo...</div>}
+                  {movimientoManual.comprobanteUrl && <div style={{ color: "#10B981", fontSize: 11, marginTop: 4 }}>✔️ Imagen cargada con éxito</div>}
+                </div>
+
+                <button 
+                  onClick={ejecutarRegistroContableManual} 
+                  style={{ ...buttonStyle, background: tipoMovimiento === 'ingreso' ? "linear-gradient(135deg, #10B981, #047857)" : "linear-gradient(135deg, #EF4444, #B91C1C)" }}
+                >
+                  {tipoMovimiento === 'ingreso' ? "Registrar Ingreso Neto" : "Registrar Gasto / Egreso"}
+                </button>
               </div>
             </div>
+
+            {/* HISTORIAL CRONOLÓGICO DE MOVIMIENTOS */}
             <div style={{ background: "#111", borderRadius: 16, padding: 14, border: "1px solid #333" }}>
-              <h3 style={{ fontSize: 14, margin: "0 0 12px 0" }}>Reportes Mensuales</h3>
+              <h3 style={{ fontSize: 14, margin: "0 0 12px 0" }}>📜 Historial de Flujo de Caja</h3>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: "350vh", overflowY: "auto" }}>
+                {gastos.map((g: Gasto, idx) => {
+                  const esIngreso = g.concepto && g.concepto.includes("[INGRESO MANUAL]");
+                  const conceptoLimpio = esIngreso ? g.concepto.replace("[INGRESO MANUAL] - ", "") : g.concepto;
+                  const fechaFormateada = g.creado_en ? g.creado_en.substring(0, 10) + " " + g.creado_en.substring(11, 16) : "";
+
+                  return (
+                    <div key={idx} style={{ background: "#0a0a0a", padding: 10, borderRadius: 10, border: "1px solid #222", fontSize: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <span style={{ fontSize: 14 }}>{esIngreso ? "🟢" : "🔴"}</span>
+                          <strong style={{ color: "#fff", textTransform: "capitalize" }}>{g.distribuidora}</strong>
+                        </div>
+                        <div style={{ color: "#888", fontSize: 11, marginTop: 2 }}>{fechaFormateada} • {g.cuenta_salida.split(" ")[0]}</div>
+                        <div style={{ color: "#aaa", fontSize: 11, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{conceptoLimpio}</div>
+                      </div>
+                      <div style={{ textAlign: "right", flexShrink: 0, display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end" }}>
+                        <span style={{ fontWeight: 800, fontSize: 13, color: esIngreso ? "#10B981" : "#EF4444" }}>
+                          {esIngreso ? "+" : "-"} ${g.monto.toLocaleString("es-AR")}
+                        </span>
+                        {g.comprobante_url && (
+                          <a 
+                            href={g.comprobante_url} 
+                            target="_blank" 
+                            rel="noreferrer" 
+                            style={{ display: "inline-block", background: "#1D4ED8", color: "#fff", padding: "2px 6px", borderRadius: 4, fontSize: 10, textDecoration: "none", fontWeight: 700 }}
+                          >
+                            📄 Ver Foto
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+                {gastos.length === 0 && <div style={{ color: "#444", fontSize: 12, textAlign: "center", padding: 10 }}>No se registraron movimientos contables.</div>}
+              </div>
+            </div>
+
+            {/* COMPONENTE HISTORIAL DE CIERRES MENSUALES */}
+            <div style={{ background: "#111", borderRadius: 16, padding: 14, border: "1px solid #333" }}>
+              <h3 style={{ fontSize: 14, margin: "0 0 12px 0" }}>📊 Reportes Mensuales</h3>
               {reportes.length === 0 && <div style={{ color: "#444", fontSize: 12, textAlign: "center" }}>Sin reportes aun</div>}
               {reportes.map((r, i) => (
                 <div key={i} style={{ background: "#0a0a0a", padding: 12, borderRadius: 10, fontSize: 13, border: "1px solid #222", marginBottom: 10 }}>
