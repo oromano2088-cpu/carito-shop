@@ -331,7 +331,7 @@ export default function AdminMobileCompleto() {
     });
     
     mostrarToast("Venta registrada");
-    setVentaManual({ cliente: "", telephone: "", direccion: "", productoId: "", tipoPago: "Efectivo", esDropshipping: false, montoEntregado: "" });
+    setVentaManual({ cliente: "", telefono: "", direccion: "", productoId: "", tipoPago: "Efectivo", esDropshipping: false, montoEntregado: "" });
     setPestana('ventas'); cargarTodo();
   };
 
@@ -459,7 +459,7 @@ export default function AdminMobileCompleto() {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                 <div>
                   <div style={{ color: "#888", fontSize: 11, marginBottom: 4 }}>Telefono</div>
-                  <input value={ventaManual.telefono} onChange={e => setVentaManual(p => ({ ...p, telephone: e.target.value }))} placeholder="Celular" style={inputStyle} />
+                  <input value={ventaManual.telefono} onChange={e => setVentaManual(p => ({ ...p, telefono: e.target.value }))} placeholder="Celular" style={inputStyle} />
                 </div>
                 <div>
                   <div style={{ color: "#888", fontSize: 11, marginBottom: 4 }}>Direccion</div>
