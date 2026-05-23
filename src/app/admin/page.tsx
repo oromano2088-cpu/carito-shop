@@ -24,6 +24,17 @@ type Reporte = {
   ventas_totales: number; total_gastos: number; ganancia_neta_real: number;
 };
 
+// Interfaz para unificar el historial en pantalla
+type ElementoHistorial = {
+  fecha: string;
+  entidad: string;
+  concepto: string;
+  monto: number;
+  cuenta: string;
+  esIngreso: boolean;
+  comprobanteUrl?: string;
+};
+
 const CLAVE = "carito2026";
 const neon = { color: "#ff2d78", textShadow: "0 0 10px #ff2d78" };
 const inputStyle = { width: "100%", padding: 12, borderRadius: 12, border: "1px solid #222", background: "#111", color: "#fff", fontSize: 14, boxSizing: "border-box" as const, outline: "none" };
@@ -40,6 +51,7 @@ export default function AdminMobileCompleto() {
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [gastos, setGastos] = useState<Gasto[]>([]);
   const [reportes, setReportes] = useState<Reporte[]>([]);
+  const [historialUnificado, setHistorialUnificado] = useState<ElementoHistorial[]>([]);
   const [cargando, setCargando] = useState(false);
   const [toast, setToast] = useState("");
   const [nuevo, setNuevo] = useState({ nombre: "", descripcion: "", precio: "", precio_oferta: "", oferta_hasta: "", emoji: "🛍️", imagen: "", imagen2: "", imagen3: "", categoria: "", stock: "0" });
@@ -53,16 +65,13 @@ export default function AdminMobileCompleto() {
   const [mesesDisponibles, setMesesDisponibles] = useState<string[]>([]);
   const [confirmarEliminar, setConfirmarEliminar] = useState<Producto | null>(null);
 
-  // CONTROL EN VIVO DE DEUDA MANUAL EN LA ORDEN
   const [editandoDeudaId, setEditandoDeudaId] = useState<number | null>(null);
   const [nuevoSaldoDeuda, setNuevoSaldoDeuda] = useState("");
 
-  // GESTIÓN CARGA DE VENTA MANUAL
   const [ventaManual, setVentaManual] = useState({ 
     cliente: "", telefono: "", direccion: "", productoId: "", tipoPago: "Efectivo", esDropshipping: false, montoEntregado: "" 
   });
 
-  // GESTIÓN CONTABLE MANUAL
   const [tipoMovimiento, setTipoMovimiento] = useState<'ingreso' | 'egreso'>('egreso');
   const [movimientoManual, setMovimientoManual] = useState({
     entidad: "", monto: "", concepto: "", cuenta: "Efectivo", comprobanteUrl: ""
@@ -94,8 +103,9 @@ export default function AdminMobileCompleto() {
     if (rData) setReportes(rData);
     
     let totalAlias = 0; let totalBrubank = 0; let totalEfectivo = 0;
+    let poolHistorial: ElementoHistorial[] = [];
     
-    // SUMATORIA INTELIGENTE DE CAJA
+    // 1. Pedidos aprobados de clientes
     listaPedidos.forEach((p: Pedido) => {
       const plataIngresadaEfectiva = p.estado_pago === 'pagado' ? p.total : (p.anticipo || 0);
 
@@ -104,10 +114,23 @@ export default function AdminMobileCompleto() {
         if (p.cuenta_ingreso === 'Brubank Señora (DIARIO.ITALIA.ARENA)') totalBrubank += plataIngresadaEfectiva;
         if (p.cuenta_ingreso === 'Efectivo') totalEfectivo += plataIngresadaEfectiva;
       }
+
+      if (p.aprobado && plataIngresadaEfectiva > 0) {
+        poolHistorial.push({
+          fecha: p.creado_en,
+          entidad: p.cliente_nombre,
+          concepto: p.productos,
+          monto: plataIngresadaEfectiva,
+          cuenta: p.cuenta_ingreso,
+          esIngreso: true
+        });
+      }
     });
 
+    // 2. Gastos e ingresos manuales de caja
     listaGastos.forEach((g: Gasto) => {
-      const esIngresoManual = g.concepto && g.concepto.includes("[INGRESO MANUAL]");
+      // Forzamos el resultado booleano con !! para asegurar compatibilidad estricta
+      const esIngresoManual = !!(g.concepto && g.concepto.includes("[INGRESO MANUAL]"));
       const montoMovimiento = g.monto || 0;
 
       if (g.cuenta_salida === 'Alias: carito.shop') {
@@ -119,7 +142,21 @@ export default function AdminMobileCompleto() {
       else if (g.cuenta_salida === 'Efectivo') {
         if (esIngresoManual) totalEfectivo += montoMovimiento; else totalEfectivo -= montoMovimiento;
       }
+
+      const conceptoLimpio = esIngresoManual ? g.concepto.replace("[INGRESO MANUAL] - ", "") : g.concepto;
+      poolHistorial.push({
+        fecha: g.creado_en,
+        entidad: g.distribuidora,
+        concepto: conceptoLimpio || "",
+        monto: montoMovimiento,
+        cuenta: g.cuenta_salida || "",
+        esIngreso: esIngresoManual,
+        comprobanteUrl: g.comprobante_url
+      });
     });
+
+    poolHistorial.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
+    setHistorialUnificado(poolHistorial);
 
     setCajas({ alias: totalAlias, brubankSenora: totalBrubank, efectivo: totalEfectivo });
     setCargando(false);
@@ -221,11 +258,10 @@ export default function AdminMobileCompleto() {
   };
 
   const cambiarEstadoPago = async (id: number, nuevoEstado: string) => { 
-    // Si cambiás directo a 'pagado' desde el selector, se asume que saldó la deuda entera
     const updates: any = { estado_pago: nuevoEstado };
     if (nuevoEstado === 'pagado') {
       const p = pedidos.find(o => o.id === id);
-      if (p) updates.anticipo = p.total; // Al igualar el anticipo al total, el saldo restante pasa a ser $0
+      if (p) updates.anticipo = p.total; 
     }
     await supabase.from("pedidos").update(updates).eq("id", id); 
     cargarTodo(); 
@@ -288,11 +324,9 @@ export default function AdminMobileCompleto() {
     setPestana('ventas'); cargarTodo();
   };
 
-  // BOTÓN CONFIRMAR: DESCONTA STOCK Y ASENTA LA COBRANZA EN CAJA DE UNA
   const ejecutarConfirmacionEntregaReal = async (pedido: Pedido) => {
     if (pedido.aprobado) return;
     
-    // 1. Descuento de stock físico tradicional si corresponde
     if (!pedido.es_dropshipping) {
       const items = pedido.productos.split(", ");
       for (const item of items) {
@@ -306,7 +340,6 @@ export default function AdminMobileCompleto() {
       }
     }
     
-    // 2. Pasamos el pedido a aprobado y forzamos el estado de entrega a 'entregado'
     await supabase.from("pedidos").update({ 
       aprobado: true,
       estado_entrega: 'entregado'
@@ -316,7 +349,6 @@ export default function AdminMobileCompleto() {
     cargarTodo();
   };
 
-  // CAMBIO DINÁMICO DE LO QUE DEBÍA EL CLIENTE
   const guardarModificacionDeudaManual = async (id: number, totalPedido: number) => {
     const deudaFijada = parseInt(nuevoSaldoDeuda);
     if (isNaN(deudaFijada) || deudaFijada < 0 || deudaFijada > totalPedido) {
@@ -324,7 +356,6 @@ export default function AdminMobileCompleto() {
       return;
     }
     
-    // Calculamos el nuevo anticipo (lo que realmente te pagó). Si debe $10.000 de un total de $45.000, te entregó $35.000.
     const nuevoAnticipoCalculado = totalPedido - deudaFijada;
     const nuevoEstadoPago = deudaFijada === 0 ? 'pagado' : 'pendiente_pago';
 
@@ -535,7 +566,6 @@ export default function AdminMobileCompleto() {
           </div>
         )}
 
-        {/* REFORMA SOLAPA ÓRDENES: MODIFICACIÓN EN CALLE Y DIRECCIONAMIENTO A CAJAS */}
         {pestana === 'ventas' && (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -559,7 +589,6 @@ export default function AdminMobileCompleto() {
                         {p.es_dropshipping && <span style={{ fontSize: 10, background: "#7C3AED", padding: "1px 6px", borderRadius: 4, marginLeft: 6 }}>Drop</span>}
                       </h4>
                       
-                      {/* MEDIO DE PAGO ASIGNADO - DETERMINA A QUÉ CAJA SUMA LA PLATA */}
                       <select value={p.cuenta_ingreso} onChange={e => cambiarCuentaIngreso(p.id, e.target.value)} style={{ background: "#000", color: "#ff2d78", fontSize: 12, padding: 5, marginTop: 6, borderRadius: 6, border: "1px solid #ff2d78", fontWeight: 700 }}>
                         <option value="Efectivo">💵 Efectivo Líquido</option>
                         <option value="Alias: carito.shop">📱 Transferencia: Alias carito.shop</option>
@@ -569,7 +598,6 @@ export default function AdminMobileCompleto() {
                     <div style={{ textAlign: "right" }}>
                       <span style={{ fontWeight: 800, fontSize: 14 }}>{"$" + p.total.toLocaleString("es-AR")}</span>
                       
-                      {/* CONTROLADOR DE DEUDA EN CALLE */}
                       <div style={{ marginTop: 4 }}>
                         {editandoDeudaId === p.id ? (
                           <div style={{ display: "flex", gap: 4, alignItems: "center", marginTop: 4 }}>
@@ -606,8 +634,6 @@ export default function AdminMobileCompleto() {
                   )}
                   
                   <div style={{ display: "flex", gap: 6, borderTop: "1px solid #222", paddingTop: 8, flexWrap: "wrap", alignItems: "center" }}>
-                    
-                    {/* BOTÓN CONFIRMAR: EJECUTA CIERRE, CALCULA EL PARCIAL ENTREGADO E INYECTA EN LA CAJA CORRECTA */}
                     {!p.aprobado && (
                       <button onClick={() => ejecutarConfirmacionEntregaReal(p)} style={{ background: "linear-gradient(135deg, #ff2d78, #ff0055)", color: "#fff", border: "none", borderRadius: 8, padding: "6px 12px", fontSize: 11, cursor: "pointer", fontWeight: 800 }}>
                         Confirmar Entrega
@@ -684,35 +710,34 @@ export default function AdminMobileCompleto() {
               </div>
             </div>
 
+            {/* HISTORIAL CRONOLÓGICO TOTALMENTE UNIFICADO */}
             <div style={{ background: "#111", borderRadius: 16, padding: 14, border: "1px solid #333" }}>
               <h3 style={{ fontSize: 14, margin: "0 0 12px 0" }}>📜 Historial de Flujo de Caja</h3>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: "350vh", overflowY: "auto" }}>
-                {gastos.map((g: Gasto, idx) => {
-                  const esIngreso = g.concepto && g.concepto.includes("[INGRESO MANUAL]");
-                  const conceptoLimpio = esIngreso ? g.concepto.replace("[INGRESO MANUAL] - ", "") : g.concepto;
-                  const fechaFormateada = g.creado_en ? g.creado_en.substring(0, 10) + " " + g.creado_en.substring(11, 16) : "";
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: "450vh", overflowY: "auto" }}>
+                {historialUnificado.map((mov, idx) => {
+                  const fechaFormateada = mov.fecha ? mov.fecha.substring(0, 10) + " " + mov.fecha.substring(11, 16) : "";
                   return (
                     <div key={idx} style={{ background: "#0a0a0a", padding: 10, borderRadius: 10, border: "1px solid #222", fontSize: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <div style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <span style={{ fontSize: 14 }}>{esIngreso ? "🟢" : "🔴"}</span>
-                          <strong style={{ color: "#fff", textTransform: "capitalize" }}>{g.distribuidora}</strong>
+                          <span style={{ fontSize: 14 }}>{mov.esIngreso ? "🟢" : "🔴"}</span>
+                          <strong style={{ color: "#fff", textTransform: "capitalize" }}>{mov.entidad}</strong>
                         </div>
-                        <div style={{ color: "#888", fontSize: 11, marginTop: 2 }}>{fechaFormateada} • {g.cuenta_salida ? g.cuenta_salida.split(" ")[0] : ""}</div>
-                        <div style={{ color: "#aaa", fontSize: 11, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{conceptoLimpio}</div>
+                        <div style={{ color: "#888", fontSize: 11, marginTop: 2 }}>{fechaFormateada} • {mov.cuenta ? mov.cuenta.split(" ")[0] : ""}</div>
+                        <div style={{ color: "#aaa", fontSize: 11, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{mov.concepto}</div>
                       </div>
                       <div style={{ textAlign: "right", flexShrink: 0, display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end" }}>
-                        <span style={{ fontWeight: 800, fontSize: 13, color: esIngreso ? "#10B981" : "#EF4444" }}>
-                          {esIngreso ? "+" : "-"} ${g.monto ? g.monto.toLocaleString("es-AR") : "0"}
+                        <span style={{ fontWeight: 800, fontSize: 13, color: mov.esIngreso ? "#10B981" : "#EF4444" }}>
+                          {mov.esIngreso ? "+" : "-"} ${mov.monto ? mov.monto.toLocaleString("es-AR") : "0"}
                         </span>
-                        {g.comprobante_url && (
-                          <a href={g.comprobante_url} target="_blank" rel="noreferrer" style={{ display: "inline-block", background: "#1D4ED8", color: "#fff", padding: "2px 6px", borderRadius: 4, fontSize: 10, textDecoration: "none", fontWeight: 700 }}>📄 Ver Foto</a>
+                        {mov.comprobanteUrl && (
+                          <a href={mov.comprobanteUrl} target="_blank" rel="noreferrer" style={{ display: "inline-block", background: "#1D4ED8", color: "#fff", padding: "2px 6px", borderRadius: 4, fontSize: 10, textDecoration: "none", fontWeight: 700 }}>📄 Ver Foto</a>
                         )}
                       </div>
                     </div>
                   );
                 })}
-                {gastos.length === 0 && <div style={{ color: "#444", fontSize: 12, textAlign: "center", padding: 10 }}>No se registraron movimientos contables.</div>}
+                {historialUnificado.length === 0 && <div style={{ color: "#444", fontSize: 12, textAlign: "center", padding: 10 }}>No se registraron movimientos contables.</div>}
               </div>
             </div>
 
