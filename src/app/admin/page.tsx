@@ -73,8 +73,9 @@ export default function AdminMobileCompleto() {
 
   const [tipoMovimiento, setTipoMovimiento] = useState<'ingreso' | 'egreso'>('egreso');
   
+  // FIX: Inicializamos con valor limpio estándar para evitar descalces contables
   const [movimientoManual, setMovimientoManual] = useState({
-    entidad: "", monto: "", concepto: "", cuenta: "Alias: carito.shop", comprobanteUrl: ""
+    entidad: "", monto: "", concepto: "", cuenta: "alias", comprobanteUrl: ""
   });
   const [subiendoComprobante, setSubiendoComprobante] = useState(false);
 
@@ -87,7 +88,7 @@ export default function AdminMobileCompleto() {
     s = s.replace("caja:", "");     
     s = s.replace("transferencia:", "");
     if (s.includes("alias") || s.includes("carito")) return "alias";
-    if (s.includes("brubank") || s.includes("señora") || s.includes("senora")) return "brubank";
+    if (s.includes("brubank") || s.includes("señora") || s.includes("senora") || s.includes("diario")) return "brubank";
     if (s.includes("efectivo")) return "efectivo";
     return s.trim();
   };
@@ -133,7 +134,7 @@ export default function AdminMobileCompleto() {
           entidad: p.cliente_nombre,
           concepto: p.productos,
           monto: plataIngresadaEfectiva,
-          cuenta: p.cuenta_ingreso,
+          cuenta: p.cuenta_ingreso.includes(":") ? p.cuenta_ingreso : "💵 " + p.cuenta_ingreso,
           esIngreso: true
         });
       }
@@ -156,12 +157,17 @@ export default function AdminMobileCompleto() {
 
       const conceptoLimpio = esIngresoManual ? g.concepto.replace("[INGRESO MANUAL] - ", "") : g.concepto;
       
+      let nombreCuentaMostrable = g.cuenta_salida;
+      if (tagCuenta === "alias") nombreCuentaMostrable = "📱 Alias";
+      else if (tagCuenta === "brubank") nombreCuentaMostrable = "👩 Brubank";
+      else if (tagCuenta === "efectivo") nombreCuentaMostrable = "💵 Efectivo";
+
       poolHistorial.push({
         fecha: g.creado_en,
         entidad: g.distribuidora,
         concepto: conceptoLimpio || "",
         monto: montoMovimiento,
-        cuenta: g.cuenta_salida || "",
+        cuenta: nombreCuentaMostrable,
         esIngreso: esIngresoManual,
         comprobanteUrl: g.comprobante_url
       });
@@ -249,7 +255,6 @@ export default function AdminMobileCompleto() {
     setEditando(null); mostrarToast("Producto actualizado"); cargarTodo();
   };
 
-  // FIX DEFINITIVO: Convertimos el monto con Number() y forzamos un refresh duro de página
   const ejecutarRegistroContableManual = async () => {
     if (!movimientoManual.entidad || !movimientoManual.monto) { 
       mostrarToast("Completa los campos obligatorios"); 
@@ -269,14 +274,12 @@ export default function AdminMobileCompleto() {
     });
 
     if (insertError) {
-      mostrarToast("Error al guardar en Supabase");
-      console.error(insertError);
+      mostrarToast("Error de guardado en Supabase");
       return;
     }
 
-    setMovimientoManual({ entidad: "", monto: "", concepto: "", cuenta: "Alias: carito.shop", comprobanteUrl: "" });
+    setMovimientoManual({ entidad: "", monto: "", concepto: "", cuenta: "alias", comprobanteUrl: "" });
     
-    // Forzamos al navegador a recargar el sitio para que levante los nuevos saldos frescos
     if (typeof window !== "undefined") {
       window.location.reload();
     }
@@ -718,10 +721,11 @@ export default function AdminMobileCompleto() {
                 <input value={movimientoManual.monto} onChange={e => setMovimientoManual(p => ({ ...p, monto: e.target.value }))} placeholder="Monto ($)" type="number" style={inputStyle} />
                 <input value={movimientoManual.concepto} onChange={e => setMovimientoManual(p => ({ ...p, concepto: e.target.value }))} placeholder="Concepto / Detalle" style={inputStyle} />
                 
+                {/* FIX: Mapeamos los selectores a valores de texto limpios legibles por normalizarCuenta */}
                 <select value={movimientoManual.cuenta} onChange={e => setMovimientoManual(p => ({ ...p, cuenta: e.target.value }))} style={inputStyle}>
-                  <option value="Alias: carito.shop">📱 Caja: Alias carito.shop</option>
-                  <option value="Efectivo">💵 Caja: Efectivo</option>
-                  <option value="Brubank Señora (DIARIO.ITALIA.ARENA)">👩 Caja: Brubank Señora</option>
+                  <option value="alias">📱 Caja: Alias carito.shop</option>
+                  <option value="efectivo">💵 Caja: Efectivo</option>
+                  <option value="brubank">👩 Caja: Brubank Señora</option>
                 </select>
                 <div>
                   <div style={{ color: "#888", fontSize: 11, marginBottom: 4 }}>Adjuntar Factura o Comprobante de Pago</div>
@@ -747,7 +751,7 @@ export default function AdminMobileCompleto() {
                           <span style={{ fontSize: 14 }}>{mov.esIngreso ? "🟢" : "🔴"}</span>
                           <strong style={{ color: "#fff", textTransform: "capitalize" }}>{mov.entidad}</strong>
                         </div>
-                        <div style={{ color: "#888", fontSize: 11, marginTop: 2 }}>{fechaFormateada} • {mov.cuenta ? mov.cuenta.split(" ")[0] : ""}</div>
+                        <div style={{ color: "#888", fontSize: 11, marginTop: 2 }}>{fechaFormateada} • {mov.cuenta}</div>
                         <div style={{ color: "#aaa", fontSize: 11, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{mov.concepto}</div>
                       </div>
                       <div style={{ textAlign: "right", flexShrink: 0, display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end" }}>
