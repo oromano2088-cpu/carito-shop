@@ -91,6 +91,7 @@ export default function AdminMobileCompleto() {
     
     let totalAlias = 0; let totalBrubank = 0; let totalEfectivo = 0;
     
+    // 1. Sumar ingresos por pedidos normales de la tienda
     listaPedidos.forEach((p: Pedido) => {
       if (p.estado_pago === 'pagado') {
         if (p.cuenta_ingreso === 'Alias: carito.shop') totalAlias += p.total;
@@ -99,16 +100,19 @@ export default function AdminMobileCompleto() {
       }
     });
 
+    // 2. Procesar la tabla de movimientos contables manuales (Suma ingresos manuales / Resta egresos)
     listaGastos.forEach((g: Gasto) => {
       const esIngresoManual = g.concepto && g.concepto.includes("[INGRESO MANUAL]");
+      const montoMovimiento = g.monto || 0;
+
       if (g.cuenta_salida === 'Alias: carito.shop') {
-        if (esIngresoManual) totalAlias += g.monto; else totalAlias -= g.monto;
+        if (esIngresoManual) totalAlias += montoMovimiento; else totalAlias -= montoMovimiento;
       }
-      if (g.cuenta_salida === 'Brubank Señora (DIARIO.ITALIA.ARENA)') {
-        if (esIngresoManual) totalBrubank += g.monto; else totalBrubank -= g.monto;
+      else if (g.cuenta_salida === 'Brubank Señora (DIARIO.ITALIA.ARENA)') {
+        if (esIngresoManual) totalBrubank += montoMovimiento; else totalBrubank -= montoMovimiento;
       }
-      if (g.cuenta_salida === 'Efectivo') {
-        if (esIngresoManual) totalEfectivo += g.monto; else totalEfectivo -= g.monto;
+      else if (g.cuenta_salida === 'Efectivo') {
+        if (esIngresoManual) totalEfectivo += montoMovimiento; else totalEfectivo -= montoMovimiento;
       }
     });
 
@@ -522,7 +526,7 @@ export default function AdminMobileCompleto() {
           </div>
         )}
 
-        {/* 4. SOLAPA CAJA */}
+        {/* 4. SOLAPA CAJA TOTALMENTE REPARADA Y DEPURADA */}
         {pestana === 'caja' && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             
@@ -616,7 +620,7 @@ export default function AdminMobileCompleto() {
               </div>
             </div>
 
-            {/* HISTORIAL CRONOLÓGICO DE MOVIMIENTOS */}
+            {/* HISTORIAL CRONOLÓGICO DE MOVIMIENTOS REVISADO */}
             <div style={{ background: "#111", borderRadius: 16, padding: 14, border: "1px solid #333" }}>
               <h3 style={{ fontSize: 14, margin: "0 0 12px 0" }}>📜 Historial de Flujo de Caja</h3>
               <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: "350vh", overflowY: "auto" }}>
@@ -632,12 +636,12 @@ export default function AdminMobileCompleto() {
                           <span style={{ fontSize: 14 }}>{esIngreso ? "🟢" : "🔴"}</span>
                           <strong style={{ color: "#fff", textTransform: "capitalize" }}>{g.distribuidora}</strong>
                         </div>
-                        <div style={{ color: "#888", fontSize: 11, marginTop: 2 }}>{fechaFormateada} • {g.cuenta_salida.split(" ")[0]}</div>
+                        <div style={{ color: "#888", fontSize: 11, marginTop: 2 }}>{fechaFormateada} • {g.cuenta_salida ? g.cuenta_salida.split(" ")[0] : ""}</div>
                         <div style={{ color: "#aaa", fontSize: 11, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{conceptoLimpio}</div>
                       </div>
                       <div style={{ textAlign: "right", flexShrink: 0, display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end" }}>
                         <span style={{ fontWeight: 800, fontSize: 13, color: esIngreso ? "#10B981" : "#EF4444" }}>
-                          {esIngreso ? "+" : "-"} ${g.monto.toLocaleString("es-AR")}
+                          {esIngreso ? "+" : "-"} ${g.monto ? g.monto.toLocaleString("es-AR") : "0"}
                         </span>
                         {g.comprobante_url && (
                           <a 
