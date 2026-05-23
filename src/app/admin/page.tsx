@@ -47,21 +47,25 @@ export default function AdminMobileCompleto() {
   const [nuevaCatNombre, setNuevaCatNombre] = useState("");
   const [subiendo, setSubiendo] = useState(false);
   const [editando, setEditando] = useState<Producto | null>(null);
-  const [ventaManual, setVentaManual] = useState({ cliente: "", telefono: "", direccion: "", productoId: "", tipoPago: "Efectivo", esDropshipping: false });
   const [busquedaCatalogo, setBusquedaCatalogo] = useState("");
   const [coincidenciasAlta, setCoincidenciasAlta] = useState<Producto[]>([]);
   const [filtroMes, setFiltroMes] = useState<string>("Todos");
   const [mesesDisponibles, setMesesDisponibles] = useState<string[]>([]);
   const [confirmarEliminar, setConfirmarEliminar] = useState<Producto | null>(null);
 
+  // CONTROL EN VIVO DE DEUDA MANUAL EN LA ORDEN
+  const [editandoDeudaId, setEditandoDeudaId] = useState<number | null>(null);
+  const [nuevoSaldoDeuda, setNuevoSaldoDeuda] = useState("");
+
+  // GESTIÓN CARGA DE VENTA MANUAL
+  const [ventaManual, setVentaManual] = useState({ 
+    cliente: "", telefono: "", direccion: "", productoId: "", tipoPago: "Efectivo", esDropshipping: false, montoEntregado: "" 
+  });
+
   // GESTIÓN CONTABLE MANUAL
   const [tipoMovimiento, setTipoMovimiento] = useState<'ingreso' | 'egreso'>('egreso');
   const [movimientoManual, setMovimientoManual] = useState({
-    entidad: "", 
-    monto: "",
-    concepto: "",
-    cuenta: "Efectivo",
-    comprobanteUrl: ""
+    entidad: "", monto: "", concepto: "", cuenta: "Efectivo", comprobanteUrl: ""
   });
   const [subiendoComprobante, setSubiendoComprobante] = useState(false);
 
@@ -91,16 +95,17 @@ export default function AdminMobileCompleto() {
     
     let totalAlias = 0; let totalBrubank = 0; let totalEfectivo = 0;
     
-    // 1. Sumar ingresos por pedidos normales de la tienda
+    // SUMATORIA INTELIGENTE DE CAJA
     listaPedidos.forEach((p: Pedido) => {
-      if (p.estado_pago === 'pagado') {
-        if (p.cuenta_ingreso === 'Alias: carito.shop') totalAlias += p.total;
-        if (p.cuenta_ingreso === 'Brubank Señora (DIARIO.ITALIA.ARENA)') totalBrubank += p.total;
-        if (p.cuenta_ingreso === 'Efectivo') totalEfectivo += p.total;
+      const plataIngresadaEfectiva = p.estado_pago === 'pagado' ? p.total : (p.anticipo || 0);
+
+      if (plataIngresadaEfectiva > 0) {
+        if (p.cuenta_ingreso === 'Alias: carito.shop') totalAlias += plataIngresadaEfectiva;
+        if (p.cuenta_ingreso === 'Brubank Señora (DIARIO.ITALIA.ARENA)') totalBrubank += plataIngresadaEfectiva;
+        if (p.cuenta_ingreso === 'Efectivo') totalEfectivo += plataIngresadaEfectiva;
       }
     });
 
-    // 2. Procesar la tabla de movimientos contables manuales (Suma ingresos manuales / Resta egresos)
     listaGastos.forEach((g: Gasto) => {
       const esIngresoManual = g.concepto && g.concepto.includes("[INGRESO MANUAL]");
       const montoMovimiento = g.monto || 0;
@@ -215,7 +220,17 @@ export default function AdminMobileCompleto() {
     cargarTodo();
   };
 
-  const cambiarEstadoPago = async (id: number, nuevoEstado: string) => { await supabase.from("pedidos").update({ estado_pago: nuevoEstado }).eq("id", id); cargarTodo(); };
+  const cambiarEstadoPago = async (id: number, nuevoEstado: string) => { 
+    // Si cambiás directo a 'pagado' desde el selector, se asume que saldó la deuda entera
+    const updates: any = { estado_pago: nuevoEstado };
+    if (nuevoEstado === 'pagado') {
+      const p = pedidos.find(o => o.id === id);
+      if (p) updates.anticipo = p.total; // Al igualar el anticipo al total, el saldo restante pasa a ser $0
+    }
+    await supabase.from("pedidos").update(updates).eq("id", id); 
+    cargarTodo(); 
+  };
+  
   const cambiarCuentaIngreso = async (id: number, nuevaCuenta: string) => { await supabase.from("pedidos").update({ cuenta_ingreso: nuevaCuenta }).eq("id", id); cargarTodo(); };
   const cambiarEstadoEntrega = async (id: number, nuevoEstado: string) => { await supabase.from("pedidos").update({ estado_entrega: nuevoEstado }).eq("id", id); cargarTodo(); };
 
@@ -231,6 +246,7 @@ export default function AdminMobileCompleto() {
     if (!ventaManual.cliente || !ventaManual.productoId) { mostrarToast("Asigna cliente y producto"); return; }
     const prodSeleccionado = productos.find(p => p.id === parseInt(ventaManual.productoId));
     if (!prodSeleccionado) return;
+    
     const precioBase = prodSeleccionado.precio_oferta || prodSeleccionado.precio;
     let totalCalculado = precioBase;
     let esFinanciado = false;
@@ -239,28 +255,44 @@ export default function AdminMobileCompleto() {
     let montoCuota = 0;
     let anticipoCalculado = precioBase;
     let cuentaAsignada = ventaManual.tipoPago === 'Cuotas' ? 'Efectivo' : ventaManual.tipoPago;
+    let estadoPagoFinal = 'pagado';
+
     if (ventaManual.tipoPago === "Cuotas") {
       esFinanciado = true; cuotasTotales = 3; cuotasPagadas = 1;
       const c1Base = precioBase / 3;
       anticipoCalculado = Math.ceil(c1Base / 1000) * 1000;
       montoCuota = Math.ceil((c1Base * 1.10) / 1000) * 1000;
       totalCalculado = anticipoCalculado + (montoCuota * 2);
+      estadoPagoFinal = 'pendiente_pago';
+    } else {
+      const entregado = parseInt(ventaManual.montoEntregado);
+      if (!isNaN(entregado)) {
+        anticipoCalculado = entregado; 
+        if (entregado < precioBase) {
+          estadoPagoFinal = 'pendiente_pago'; 
+        }
+      }
     }
+
     await supabase.from("pedidos").insert({
       cliente_nombre: ventaManual.cliente, cliente_telefono: ventaManual.telefono,
       cliente_direccion: ventaManual.direccion, productos: prodSeleccionado.nombre + " x1",
-      total: totalCalculado, estado_pago: esFinanciado ? 'pendiente_pago' : 'pagado',
+      total: totalCalculado, estado_pago: estadoPagoFinal,
       estado_entrega: 'pendiente_entrega', aprobado: false, es_financiado: esFinanciado,
       cuotas_totales: cuotasTotales, cuotas_pagadas: cuotasPagadas, monto_cuota: montoCuota,
       anticipo: anticipoCalculado, cuenta_ingreso: cuentaAsignada, es_dropshipping: ventaManual.esDropshipping,
     });
+    
     mostrarToast("Venta registrada");
-    setVentaManual({ cliente: "", telefono: "", direccion: "", productoId: "", tipoPago: "Efectivo", esDropshipping: false });
+    setVentaManual({ cliente: "", telefono: "", direccion: "", productoId: "", tipoPago: "Efectivo", esDropshipping: false, montoEntregado: "" });
     setPestana('ventas'); cargarTodo();
   };
 
-  const aprobarPedido = async (pedido: Pedido) => {
+  // BOTÓN CONFIRMAR: DESCONTA STOCK Y ASENTA LA COBRANZA EN CAJA DE UNA
+  const ejecutarConfirmacionEntregaReal = async (pedido: Pedido) => {
     if (pedido.aprobado) return;
+    
+    // 1. Descuento de stock físico tradicional si corresponde
     if (!pedido.es_dropshipping) {
       const items = pedido.productos.split(", ");
       for (const item of items) {
@@ -273,8 +305,37 @@ export default function AdminMobileCompleto() {
         }
       }
     }
-    await supabase.from("pedidos").update({ aprobado: true }).eq("id", pedido.id);
-    mostrarToast(pedido.es_dropshipping ? "Dropshipping Confirmado" : "Stock descontado");
+    
+    // 2. Pasamos el pedido a aprobado y forzamos el estado de entrega a 'entregado'
+    await supabase.from("pedidos").update({ 
+      aprobado: true,
+      estado_entrega: 'entregado'
+    }).eq("id", pedido.id);
+    
+    mostrarToast(pedido.es_dropshipping ? "Dropshipping Confirmado" : "Entrega cerrada y stock descontado");
+    cargarTodo();
+  };
+
+  // CAMBIO DINÁMICO DE LO QUE DEBÍA EL CLIENTE
+  const guardarModificacionDeudaManual = async (id: number, totalPedido: number) => {
+    const deudaFijada = parseInt(nuevoSaldoDeuda);
+    if (isNaN(deudaFijada) || deudaFijada < 0 || deudaFijada > totalPedido) {
+      mostrarToast("Monto inválido");
+      return;
+    }
+    
+    // Calculamos el nuevo anticipo (lo que realmente te pagó). Si debe $10.000 de un total de $45.000, te entregó $35.000.
+    const nuevoAnticipoCalculado = totalPedido - deudaFijada;
+    const nuevoEstadoPago = deudaFijada === 0 ? 'pagado' : 'pendiente_pago';
+
+    await supabase.from("pedidos").update({
+      anticipo: nuevoAnticipoCalculado,
+      estado_pago: nuevoEstadoPago
+    }).eq("id", id);
+
+    setEditandoDeudaId(null);
+    setNuevoSaldoDeuda("");
+    mostrarToast("Deuda actualizada en vivo");
     cargarTodo();
   };
 
@@ -378,14 +439,29 @@ export default function AdminMobileCompleto() {
                 <label htmlFor="drop" style={{ fontSize: 13, color: "#ccc" }}>Es Dropshipping (sin descontar stock propio)</label>
               </div>
               <div>
-                <div style={{ color: "#888", fontSize: 11, marginBottom: 4 }}>Forma de Pago</div>
+                <div style={{ color: "#888", fontSize: 11, marginBottom: 4 }}>Forma de Pago / Modalidad</div>
                 <select value={ventaManual.tipoPago} onChange={e => setVentaManual(p => ({ ...p, tipoPago: e.target.value }))} style={inputStyle}>
-                  <option value="Efectivo">Efectivo</option>
+                  <option value="Efectivo">Efectivo Líquido</option>
                   <option value="Alias: carito.shop">Transferencia: Alias carito.shop</option>
                   <option value="Brubank Señora (DIARIO.ITALIA.ARENA)">Transferencia: Brubank Señora</option>
-                  <option value="Cuotas">Financiar en 3 Cuotas</option>
+                  <option value="Cuotas">Financiar en 3 Cuotas (Calculador Oscar)</option>
                 </select>
               </div>
+
+              {ventaManual.tipoPago !== "Cuotas" && (
+                <div>
+                  <div style={{ color: "#ff2d78", fontSize: 11, fontWeight: 700, marginBottom: 4 }}>Monto Entregado / Seña Recibida ($)</div>
+                  <input 
+                    value={ventaManual.montoEntregado} 
+                    onChange={e => setVentaManual(p => ({ ...p, montoEntregado: e.target.value }))} 
+                    placeholder="Dejar vacío si pagó el total" 
+                    type="number" 
+                    style={{ ...inputStyle, border: "1px solid #ff2d78" }} 
+                  />
+                  <span style={{ color: "#555", fontSize: 10, display: "block", marginTop: 4 }}>Si el cliente deja una seña menor al valor total, la orden pasará a estado 'Debe' por el saldo restante automáticamente.</span>
+                </div>
+              )}
+
               <button onClick={ejecutarCargaVentaManual} style={buttonStyle}>Registrar Venta</button>
             </div>
           </div>
@@ -459,6 +535,7 @@ export default function AdminMobileCompleto() {
           </div>
         )}
 
+        {/* REFORMA SOLAPA ÓRDENES: MODIFICACIÓN EN CALLE Y DIRECCIONAMIENTO A CAJAS */}
         {pestana === 'ventas' && (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -469,7 +546,10 @@ export default function AdminMobileCompleto() {
               </select>
             </div>
             {pedidosActivos.map((p: Pedido) => {
-              const saldo = p.es_financiado ? ((p.cuotas_totales || 0) - (p.cuotas_pagadas || 0)) * (p.monto_cuota || 0) : (p.estado_pago === 'pendiente_pago' ? p.total : 0);
+              const saldoDeudaReal = p.es_financiado 
+                ? ((p.cuotas_totales || 0) - (p.cuotas_pagadas || 0)) * (p.monto_cuota || 0) 
+                : (p.estado_pago === 'pendiente_pago' ? (p.total - (p.anticipo || 0)) : 0);
+
               return (
                 <div key={p.id} style={{ background: "#111", borderRadius: 14, padding: 14, border: p.aprobado ? "1px solid #222" : "2px solid #ff2d78" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
@@ -478,20 +558,42 @@ export default function AdminMobileCompleto() {
                         {p.cliente_nombre}
                         {p.es_dropshipping && <span style={{ fontSize: 10, background: "#7C3AED", padding: "1px 6px", borderRadius: 4, marginLeft: 6 }}>Drop</span>}
                       </h4>
-                      <select value={p.cuenta_ingreso} onChange={e => cambiarCuentaIngreso(p.id, e.target.value)} style={{ background: "#000", color: "#ff2d78", fontSize: 11, padding: 3, marginTop: 4, borderRadius: 4, border: "1px solid #333" }}>
-                        <option value="Efectivo">Efectivo</option>
-                        <option value="Alias: carito.shop">Alias: carito.shop</option>
-                        <option value="Brubank Señora (DIARIO.ITALIA.ARENA)">Brubank Señora</option>
+                      
+                      {/* MEDIO DE PAGO ASIGNADO - DETERMINA A QUÉ CAJA SUMA LA PLATA */}
+                      <select value={p.cuenta_ingreso} onChange={e => cambiarCuentaIngreso(p.id, e.target.value)} style={{ background: "#000", color: "#ff2d78", fontSize: 12, padding: 5, marginTop: 6, borderRadius: 6, border: "1px solid #ff2d78", fontWeight: 700 }}>
+                        <option value="Efectivo">💵 Efectivo Líquido</option>
+                        <option value="Alias: carito.shop">📱 Transferencia: Alias carito.shop</option>
+                        <option value="Brubank Señora (DIARIO.ITALIA.ARENA)">👩 Transferencia: Brubank Señora</option>
                       </select>
                     </div>
                     <div style={{ textAlign: "right" }}>
                       <span style={{ fontWeight: 800, fontSize: 14 }}>{"$" + p.total.toLocaleString("es-AR")}</span>
-                      <div style={{ fontSize: 11, color: saldo > 0 ? "#EF4444" : "#10B981" }}>
-                        {saldo > 0 ? "Debe $" + saldo.toLocaleString("es-AR") : "Saldado"}
+                      
+                      {/* CONTROLADOR DE DEUDA EN CALLE */}
+                      <div style={{ marginTop: 4 }}>
+                        {editandoDeudaId === p.id ? (
+                          <div style={{ display: "flex", gap: 4, alignItems: "center", marginTop: 4 }}>
+                            <input 
+                              type="number" 
+                              value={nuevoSaldoDeuda} 
+                              onChange={e => setNuevoSaldoDeuda(e.target.value)} 
+                              placeholder="¿Cuánto debe?" 
+                              style={{ background: "#000", border: "1px solid #EF4444", color: "#fff", padding: 4, borderRadius: 6, width: 80, fontSize: 11, textAlign: "center" }}
+                            />
+                            <button onClick={() => guardarModificacionDeudaManual(p.id, p.total)} style={{ background: "#10B981", border: "none", color: "#fff", padding: "4px 8px", borderRadius: 4, fontSize: 11, cursor: "pointer", fontWeight: "bold" }}>✓</button>
+                            <button onClick={() => setEditandoDeudaId(null)} style={{ background: "#333", border: "none", color: "#fff", padding: "4px 8px", borderRadius: 4, fontSize: 11, cursor: "pointer" }}>X</button>
+                          </div>
+                        ) : (
+                          <div onClick={() => { setEditandoDeudaId(p.id); setNuevoSaldoDeuda(saldoDeudaReal.toString()); }} style={{ fontSize: 12, color: saldoDeudaReal > 0 ? "#EF4444" : "#10B981", fontWeight: 800, cursor: "pointer", background: "rgba(239, 68, 68, 0.08)", padding: "2px 6px", borderRadius: 4, display: "inline-block" }}>
+                            {saldoDeudaReal > 0 ? "Debe $" + saldoDeudaReal.toLocaleString("es-AR") + " ✏️" : "Saldado ✏️"}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
-                  <p style={{ fontSize: 12, background: "#000", padding: 6, borderRadius: 6, margin: "8px 0" }}>{p.productos}</p>
+                  
+                  <p style={{ fontSize: 12, background: "#000", padding: 8, borderRadius: 6, margin: "8px 0", border: "1px solid #222" }}>{p.productos}</p>
+                  
                   {p.es_financiado && (
                     <div style={{ background: "rgba(255,45,120,0.04)", padding: 8, borderRadius: 6, marginBottom: 8, display: "flex", justifyContent: "space-between", fontSize: 11 }}>
                       <span>{"Cuotas: " + p.cuotas_pagadas + "/" + p.cuotas_totales + " ($" + (p.monto_cuota || 0).toLocaleString("es-AR") + " c/u)"}</span>
@@ -502,17 +604,22 @@ export default function AdminMobileCompleto() {
                       )}
                     </div>
                   )}
-                  <div style={{ display: "flex", gap: 6, borderTop: "1px solid #222", paddingTop: 8, flexWrap: "wrap" }}>
+                  
+                  <div style={{ display: "flex", gap: 6, borderTop: "1px solid #222", paddingTop: 8, flexWrap: "wrap", alignItems: "center" }}>
+                    
+                    {/* BOTÓN CONFIRMAR: EJECUTA CIERRE, CALCULA EL PARCIAL ENTREGADO E INYECTA EN LA CAJA CORRECTA */}
                     {!p.aprobado && (
-                      <button onClick={() => aprobarPedido(p)} style={{ background: "#ff2d78", color: "#fff", border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 11, cursor: "pointer", fontWeight: 700 }}>
-                        Confirmar
+                      <button onClick={() => ejecutarConfirmacionEntregaReal(p)} style={{ background: "linear-gradient(135deg, #ff2d78, #ff0055)", color: "#fff", border: "none", borderRadius: 8, padding: "6px 12px", fontSize: 11, cursor: "pointer", fontWeight: 800 }}>
+                        Confirmar Entrega
                       </button>
                     )}
-                    <select value={p.estado_pago} onChange={e => cambiarEstadoPago(p.id, e.target.value)} style={{ background: "#222", color: "#fff", border: "none", borderRadius: 6, fontSize: 11, padding: 4 }}>
+                    
+                    <select value={p.estado_pago} onChange={e => cambiarEstadoPago(p.id, e.target.value)} style={{ background: "#222", color: "#fff", border: "none", borderRadius: 6, fontSize: 11, padding: 5, fontWeight: 700 }}>
                       <option value="pendiente_pago">Debe</option>
                       <option value="pagado">Pago Total</option>
                     </select>
-                    <select value={p.estado_entrega} onChange={e => cambiarEstadoEntrega(p.id, e.target.value)} style={{ background: "#222", color: "#fff", border: "none", borderRadius: 6, fontSize: 11, padding: 4 }}>
+                    
+                    <select value={p.estado_entrega} onChange={e => cambiarEstadoEntrega(p.id, e.target.value)} style={{ background: "#222", color: "#fff", border: "none", borderRadius: 6, fontSize: 11, padding: 5, fontWeight: 700 }}>
                       <option value="pendiente_entrega">Pendiente entrega</option>
                       <option value="entregado">Entregado</option>
                     </select>
@@ -526,11 +633,8 @@ export default function AdminMobileCompleto() {
           </div>
         )}
 
-        {/* 4. SOLAPA CAJA TOTALMENTE REPARADA Y DEPURADA */}
         {pestana === 'caja' && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            
-            {/* PANEL DE SALDOS TOTALES */}
             <div style={{ background: "#111", border: "1px solid #ff2d78", borderRadius: 16, padding: 14 }}>
               <h3 style={{ fontSize: 14, margin: "0 0 12px 0", color: "#ff2d78" }}>Saldos Disponibles</h3>
               <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 13 }}>
@@ -549,78 +653,37 @@ export default function AdminMobileCompleto() {
               </div>
             </div>
 
-            {/* FORMULARIO AVANZADO DE INGRESOS / EGRESOS MANUALES */}
             <div style={{ background: "#111", borderRadius: 16, padding: 14, border: "1px solid #333" }}>
               <h3 style={{ fontSize: 14, margin: "0 0 14px 0", ...neon }}>Gestión Contable Directa</h3>
-              
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 14 }}>
-                <button 
-                  onClick={() => setTipoMovimiento('ingreso')} 
-                  style={{ padding: 10, borderRadius: 8, border: "none", fontWeight: 700, fontSize: 12, background: tipoMovimiento === 'ingreso' ? "#10B981" : "#222", color: "#fff", cursor: "pointer" }}
-                >
+                <button onClick={() => setTipoMovimiento('ingreso')} style={{ padding: 10, borderRadius: 8, border: "none", fontWeight: 700, fontSize: 12, background: tipoMovimiento === 'ingreso' ? "#10B981" : "#222", color: "#fff", cursor: "pointer" }}>
                   🟢 Cargar Ingreso (Pago)
                 </button>
-                <button 
-                  onClick={() => setTipoMovimiento('egreso')} 
-                  style={{ padding: 10, borderRadius: 8, border: "none", fontWeight: 700, fontSize: 12, background: tipoMovimiento === 'egreso' ? "#EF4444" : "#222", color: "#fff", cursor: "pointer" }}
-                >
+                <button onClick={() => setTipoMovimiento('egreso')} style={{ padding: 10, borderRadius: 8, border: "none", fontWeight: 700, fontSize: 12, background: tipoMovimiento === 'egreso' ? "#EF4444" : "#222", color: "#fff", cursor: "pointer" }}>
                   🔴 Cargar Egreso (Gasto)
                 </button>
               </div>
-
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                <input 
-                  value={movimientoManual.entidad} 
-                  onChange={e => setMovimientoManual(p => ({ ...p, entidad: e.target.value }))} 
-                  placeholder={tipoMovimiento === 'ingreso' ? "Nombre del Cliente / Origen" : "Distribuidora / Proveedor"} 
-                  style={inputStyle} 
-                />
-                <input 
-                  value={movimientoManual.monto} 
-                  onChange={e => setMovimientoManual(p => ({ ...p, monto: e.target.value }))} 
-                  placeholder="Monto ($)" 
-                  type="number" 
-                  style={inputStyle} 
-                />
-                <input 
-                  value={movimientoManual.concepto} 
-                  onChange={e => setMovimientoManual(p => ({ ...p, concepto: e.target.value }))} 
-                  placeholder="Concepto / Detalle" 
-                  style={inputStyle} 
-                />
-                
-                <select 
-                  value={movimientoManual.cuenta} 
-                  onChange={e => setMovimientoManual(p => ({ ...p, cuenta: e.target.value }))} 
-                  style={inputStyle}
-                >
+                <input value={movimientoManual.entidad} onChange={e => setMovimientoManual(p => ({ ...p, entidad: e.target.value }))} placeholder={tipoMovimiento === 'ingreso' ? "Nombre del Cliente / Origen" : "Distribuidora / Proveedor"} style={inputStyle} />
+                <input value={movimientoManual.monto} onChange={e => setMovimientoManual(p => ({ ...p, monto: e.target.value }))} placeholder="Monto ($)" type="number" style={inputStyle} />
+                <input value={movimientoManual.concepto} onChange={e => setMovimientoManual(p => ({ ...p, concepto: e.target.value }))} placeholder="Concepto / Detalle" style={inputStyle} />
+                <select value={movimientoManual.cuenta} onChange={e => setMovimientoManual(p => ({ ...p, cuenta: e.target.value }))} style={inputStyle}>
                   <option value="Efectivo">💵 Caja: Efectivo</option>
                   <option value="Alias: carito.shop">📱 Caja: Alias carito.shop</option>
                   <option value="Brubank Señora (DIARIO.ITALIA.ARENA)">👩 Caja: Brubank Señora</option>
                 </select>
-
                 <div>
                   <div style={{ color: "#888", fontSize: 11, marginBottom: 4 }}>Adjuntar Factura o Comprobante de Pago</div>
-                  <input 
-                    type="file" 
-                    accept="image/*" 
-                    onChange={e => e.target.files && subirFotoComprobante(e.target.files[0])} 
-                    style={{ ...inputStyle, fontSize: 12, color: "#aaa" }} 
-                  />
+                  <input type="file" accept="image/*" onChange={e => e.target.files && subirFotoComprobante(e.target.files[0])} style={{ ...inputStyle, fontSize: 12, color: "#aaa" }} />
                   {subiendoComprobante && <div style={{ color: "#ff2d78", fontSize: 11, marginTop: 4 }}>Subiendo archivo...</div>}
                   {movimientoManual.comprobanteUrl && <div style={{ color: "#10B981", fontSize: 11, marginTop: 4 }}>✔️ Imagen cargada con éxito</div>}
                 </div>
-
-                <button 
-                  onClick={ejecutarRegistroContableManual} 
-                  style={{ ...buttonStyle, background: tipoMovimiento === 'ingreso' ? "linear-gradient(135deg, #10B981, #047857)" : "linear-gradient(135deg, #EF4444, #B91C1C)" }}
-                >
+                <button onClick={ejecutarRegistroContableManual} style={{ ...buttonStyle, background: tipoMovimiento === 'ingreso' ? "linear-gradient(135deg, #10B981, #047857)" : "linear-gradient(135deg, #EF4444, #B91C1C)" }}>
                   {tipoMovimiento === 'ingreso' ? "Registrar Ingreso Neto" : "Registrar Gasto / Egreso"}
                 </button>
               </div>
             </div>
 
-            {/* HISTORIAL CRONOLÓGICO DE MOVIMIENTOS REVISADO */}
             <div style={{ background: "#111", borderRadius: 16, padding: 14, border: "1px solid #333" }}>
               <h3 style={{ fontSize: 14, margin: "0 0 12px 0" }}>📜 Historial de Flujo de Caja</h3>
               <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: "350vh", overflowY: "auto" }}>
@@ -628,7 +691,6 @@ export default function AdminMobileCompleto() {
                   const esIngreso = g.concepto && g.concepto.includes("[INGRESO MANUAL]");
                   const conceptoLimpio = esIngreso ? g.concepto.replace("[INGRESO MANUAL] - ", "") : g.concepto;
                   const fechaFormateada = g.creado_en ? g.creado_en.substring(0, 10) + " " + g.creado_en.substring(11, 16) : "";
-
                   return (
                     <div key={idx} style={{ background: "#0a0a0a", padding: 10, borderRadius: 10, border: "1px solid #222", fontSize: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <div style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
@@ -644,14 +706,7 @@ export default function AdminMobileCompleto() {
                           {esIngreso ? "+" : "-"} ${g.monto ? g.monto.toLocaleString("es-AR") : "0"}
                         </span>
                         {g.comprobante_url && (
-                          <a 
-                            href={g.comprobante_url} 
-                            target="_blank" 
-                            rel="noreferrer" 
-                            style={{ display: "inline-block", background: "#1D4ED8", color: "#fff", padding: "2px 6px", borderRadius: 4, fontSize: 10, textDecoration: "none", fontWeight: 700 }}
-                          >
-                            📄 Ver Foto
-                          </a>
+                          <a href={g.comprobante_url} target="_blank" rel="noreferrer" style={{ display: "inline-block", background: "#1D4ED8", color: "#fff", padding: "2px 6px", borderRadius: 4, fontSize: 10, textDecoration: "none", fontWeight: 700 }}>📄 Ver Foto</a>
                         )}
                       </div>
                     </div>
@@ -661,7 +716,6 @@ export default function AdminMobileCompleto() {
               </div>
             </div>
 
-            {/* COMPONENTE HISTORIAL DE CIERRES MENSUALES */}
             <div style={{ background: "#111", borderRadius: 16, padding: 14, border: "1px solid #333" }}>
               <h3 style={{ fontSize: 14, margin: "0 0 12px 0" }}>📊 Reportes Mensuales</h3>
               {reportes.length === 0 && <div style={{ color: "#444", fontSize: 12, textAlign: "center" }}>Sin reportes aun</div>}
