@@ -83,7 +83,6 @@ export default function AdminMobileCompleto() {
   const normalizarCuenta = (str: string): string => {
     if (!str) return "";
     let s = str.toLowerCase();
-    // Limpieza agresiva de emojis y prefijos comunes
     s = s.replace(/[💵📱👩]/g, ""); 
     s = s.replace("caja:", "");     
     s = s.replace("transferencia:", "");
@@ -118,7 +117,6 @@ export default function AdminMobileCompleto() {
     let totalAlias = 0; let totalBrubank = 0; let totalEfectivo = 0;
     let poolHistorial: ElementoHistorial[] = [];
     
-    // Process Client Orders (Income)
     listaPedidos.forEach((p: Pedido) => {
       const plataIngresadaEfectiva = p.estado_pago === 'pagado' ? p.total : (p.anticipo || 0);
       const tagCuenta = normalizarCuenta(p.cuenta_ingreso);
@@ -141,7 +139,6 @@ export default function AdminMobileCompleto() {
       }
     });
 
-    // Process Supplier Transactions (Expenses / Manual Income)
     listaGastos.forEach((g: Gasto) => {
       const esIngresoManual = !!(g.concepto && g.concepto.includes("[INGRESO MANUAL]"));
       const montoMovimiento = g.monto || 0;
@@ -159,7 +156,6 @@ export default function AdminMobileCompleto() {
 
       const conceptoLimpio = esIngresoManual ? g.concepto.replace("[INGRESO MANUAL] - ", "") : g.concepto;
       
-      // FIX: Todo gasto de distribuidora entra al historial unificado obligatoriamente
       poolHistorial.push({
         fecha: g.creado_en,
         entidad: g.distribuidora,
@@ -253,6 +249,7 @@ export default function AdminMobileCompleto() {
     setEditando(null); mostrarToast("Producto actualizado"); cargarTodo();
   };
 
+  // FIX: Se agregó await estricto para asegurar que cargue todo tras impactar en Supabase
   const ejecutarRegistroContableManual = async () => {
     if (!movimientoManual.entidad || !movimientoManual.monto) { mostrarToast("Completa los campos obligatorios"); return; }
     
@@ -270,7 +267,7 @@ export default function AdminMobileCompleto() {
 
     setMovimientoManual({ entidad: "", monto: "", concepto: "", cuenta: "Alias: carito.shop", comprobanteUrl: "" });
     mostrarToast(tipoMovimiento === 'ingreso' ? "Ingreso asentado" : "Egreso asentado"); 
-    cargarTodo();
+    await cargarTodo();
   };
 
   const cambiarEstadoPago = async (id: number, nuevoEstado: string) => { 
