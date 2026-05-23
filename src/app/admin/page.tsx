@@ -72,8 +72,9 @@ export default function AdminMobileCompleto() {
   });
 
   const [tipoMovimiento, setTipoMovimiento] = useState<'ingreso' | 'egreso'>('egreso');
+  
   const [movimientoManual, setMovimientoManual] = useState({
-    entidad: "", monto: "", concepto: "", cuenta: "Efectivo", comprobanteUrl: ""
+    entidad: "", monto: "", concepto: "", cuenta: "Alias: carito.shop", comprobanteUrl: ""
   });
   const [subiendoComprobante, setSubiendoComprobante] = useState(false);
 
@@ -82,9 +83,12 @@ export default function AdminMobileCompleto() {
   const normalizarCuenta = (str: string): string => {
     if (!str) return "";
     let s = str.toLowerCase();
-    s = s.replace(/[💵📱👩]/g, "");
-    s = s.replace("caja:", "");
+    s = s.replace(/[💵📱👩]/g, ""); 
+    s = s.replace("caja:", "");     
     s = s.replace("transferencia:", "");
+    if (s.includes("alias") || s.includes("carito")) return "alias";
+    if (s.includes("brubank") || s.includes("señora") || s.includes("senora")) return "brubank";
+    if (s.includes("efectivo")) return "efectivo";
     return s.trim();
   };
 
@@ -115,12 +119,12 @@ export default function AdminMobileCompleto() {
     
     listaPedidos.forEach((p: Pedido) => {
       const plataIngresadaEfectiva = p.estado_pago === 'pagado' ? p.total : (p.anticipo || 0);
-      const cuentaFormateada = normalizarCuenta(p.cuenta_ingreso);
+      const tagCuenta = normalizarCuenta(p.cuenta_ingreso);
 
       if (plataIngresadaEfectiva > 0) {
-        if (cuentaFormateada.includes("alias") || cuentaFormateada.includes("carito.shop")) totalAlias += plataIngresadaEfectiva;
-        else if (cuentaFormateada.includes("brubank") || cuentaFormateada.includes("señora")) totalBrubank += plataIngresadaEfectiva;
-        else if (cuentaFormateada.includes("efectivo")) totalEfectivo += plataIngresadaEfectiva;
+        if (tagCuenta === "alias") totalAlias += plataIngresadaEfectiva;
+        else if (tagCuenta === "brubank") totalBrubank += plataIngresadaEfectiva;
+        else if (tagCuenta === "efectivo") totalEfectivo += plataIngresadaEfectiva;
       }
 
       if (p.aprobado && plataIngresadaEfectiva > 0) {
@@ -138,15 +142,15 @@ export default function AdminMobileCompleto() {
     listaGastos.forEach((g: Gasto) => {
       const esIngresoManual = !!(g.concepto && g.concepto.includes("[INGRESO MANUAL]"));
       const montoMovimiento = g.monto || 0;
-      const cuentaFormateada = normalizarCuenta(g.cuenta_salida);
+      const tagCuenta = normalizarCuenta(g.cuenta_salida);
 
-      if (cuentaFormateada.includes("alias") || cuentaFormateada.includes("carito.shop")) {
+      if (tagCuenta === "alias") {
         if (esIngresoManual) totalAlias += montoMovimiento; else totalAlias -= montoMovimiento;
       }
-      else if (cuentaFormateada.includes("brubank") || cuentaFormateada.includes("señora")) {
+      else if (tagCuenta === "brubank") {
         if (esIngresoManual) totalBrubank += montoMovimiento; else totalBrubank -= montoMovimiento;
       }
-      else if (cuentaFormateada.includes("efectivo")) {
+      else if (tagCuenta === "efectivo") {
         if (esIngresoManual) totalEfectivo += montoMovimiento; else totalEfectivo -= montoMovimiento;
       }
 
@@ -259,7 +263,7 @@ export default function AdminMobileCompleto() {
       comprobante_url: movimientoManual.comprobanteUrl || null
     });
 
-    setMovimientoManual({ entidad: "", monto: "", concepto: "", cuenta: "Efectivo", comprobanteUrl: "" });
+    setMovimientoManual({ entidad: "", monto: "", concepto: "", cuenta: "Alias: carito.shop", comprobanteUrl: "" });
     mostrarToast(tipoMovimiento === 'ingreso' ? "Ingreso asentado" : "Egreso asentado"); 
     cargarTodo();
   };
@@ -327,7 +331,7 @@ export default function AdminMobileCompleto() {
     });
     
     mostrarToast("Venta registrada");
-    setVentaManual({ cliente: "", telefono: "", direccion: "", productoId: "", tipoPago: "Efectivo", esDropshipping: false, montoEntregado: "" });
+    setVentaManual({ cliente: "", telephone: "", direccion: "", productoId: "", tipoPago: "Efectivo", esDropshipping: false, montoEntregado: "" });
     setPestana('ventas'); cargarTodo();
   };
 
@@ -401,7 +405,6 @@ export default function AdminMobileCompleto() {
         </div>
       )}
 
-      {/* MODAL CONFIRMAR ELIMINAR */}
       {confirmarEliminar && (
         <div style={{ position: "fixed", inset: 0, zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
           <div onClick={() => setConfirmarEliminar(null)} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.85)" }} />
@@ -456,7 +459,7 @@ export default function AdminMobileCompleto() {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                 <div>
                   <div style={{ color: "#888", fontSize: 11, marginBottom: 4 }}>Telefono</div>
-                  <input value={ventaManual.telefono} onChange={e => setVentaManual(p => ({ ...p, telefono: e.target.value }))} placeholder="Celular" style={inputStyle} />
+                  <input value={ventaManual.telefono} onChange={e => setVentaManual(p => ({ ...p, telephone: e.target.value }))} placeholder="Celular" style={inputStyle} />
                 </div>
                 <div>
                   <div style={{ color: "#888", fontSize: 11, marginBottom: 4 }}>Direccion</div>
@@ -689,10 +692,10 @@ export default function AdminMobileCompleto() {
             <div style={{ background: "#111", borderRadius: 16, padding: 14, border: "1px solid #333" }}>
               <h3 style={{ fontSize: 14, margin: "0 0 14px 0", ...neon }}>Gestión Contable Directa</h3>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 14 }}>
-                <button onClick={() => setTipoMovimiento('ingreso')} style={{ padding: 10, borderRadius: 8, border: "none", fontWeight: 700, fontSize: 12, background: tipoMovimiento === 'ingreso' ? "#10B981" : "#222", color: "#fff", cursor: "pointer" }}>
+                <button type="button" onClick={() => setTipoMovimiento('ingreso')} style={{ padding: 10, borderRadius: 8, border: "none", fontWeight: 700, fontSize: 12, background: tipoMovimiento === 'ingreso' ? "#10B981" : "#222", color: "#fff", cursor: "pointer" }}>
                   🟢 Cargar Ingreso (Pago)
                 </button>
-                <button onClick={() => setTipoMovimiento('egreso')} style={{ padding: 10, borderRadius: 8, border: "none", fontWeight: 700, fontSize: 12, background: tipoMovimiento === 'egreso' ? "#EF4444" : "#222", color: "#fff", cursor: "pointer" }}>
+                <button type="button" onClick={() => setTipoMovimiento('egreso')} style={{ padding: 10, borderRadius: 8, border: "none", fontWeight: 700, fontSize: 12, background: tipoMovimiento === 'egreso' ? "#EF4444" : "#222", color: "#fff", cursor: "pointer" }}>
                   🔴 Cargar Egreso (Gasto)
                 </button>
               </div>
@@ -700,9 +703,10 @@ export default function AdminMobileCompleto() {
                 <input value={movimientoManual.entidad} onChange={e => setMovimientoManual(p => ({ ...p, entidad: e.target.value }))} placeholder={tipoMovimiento === 'ingreso' ? "Nombre del Cliente / Origen" : "Distribuidora / Proveedor"} style={inputStyle} />
                 <input value={movimientoManual.monto} onChange={e => setMovimientoManual(p => ({ ...p, monto: e.target.value }))} placeholder="Monto ($)" type="number" style={inputStyle} />
                 <input value={movimientoManual.concepto} onChange={e => setMovimientoManual(p => ({ ...p, concepto: e.target.value }))} placeholder="Concepto / Detalle" style={inputStyle} />
+                
                 <select value={movimientoManual.cuenta} onChange={e => setMovimientoManual(p => ({ ...p, cuenta: e.target.value }))} style={inputStyle}>
-                  <option value="Efectivo">💵 Caja: Efectivo</option>
                   <option value="Alias: carito.shop">📱 Caja: Alias carito.shop</option>
+                  <option value="Efectivo">💵 Caja: Efectivo</option>
                   <option value="Brubank Señora (DIARIO.ITALIA.ARENA)">👩 Caja: Brubank Señora</option>
                 </select>
                 <div>
