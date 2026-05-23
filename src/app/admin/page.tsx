@@ -18,6 +18,7 @@ type Pedido = {
 type Gasto = {
   id: number; distribuidora: string; monto: number; concepto: string;
   cuenta_salida: string; creado_en: string; comprobante_url?: string;
+  tipo_movimiento?: string; // ChatGPT Paso 2
 };
 type Reporte = {
   mes: string; total_pedidos: number; total_cobrado: number; total_deuda: number;
@@ -73,7 +74,6 @@ export default function AdminMobileCompleto() {
 
   const [tipoMovimiento, setTipoMovimiento] = useState<'ingreso' | 'egreso'>('egreso');
   
-  // FIX: Inicializamos con valor limpio estándar para evitar descalces contables
   const [movimientoManual, setMovimientoManual] = useState({
     entidad: "", monto: "", concepto: "", cuenta: "alias", comprobanteUrl: ""
   });
@@ -81,16 +81,22 @@ export default function AdminMobileCompleto() {
 
   useEffect(() => { if (logueado) { cargarTodo(); } }, [logueado]);
 
+  // ChatGPT Paso 3 (Función normalizar optimizada con remoción de acentos)
   const normalizarCuenta = (str: string): string => {
     if (!str) return "";
-    let s = str.toLowerCase();
-    s = s.replace(/[💵📱👩]/g, ""); 
-    s = s.replace("caja:", "");     
-    s = s.replace("transferencia:", "");
+    const s = str
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[💵📱👩]/g, "")
+      .replace("caja:", "")
+      .replace("transferencia:", "")
+      .trim();
+
     if (s.includes("alias") || s.includes("carito")) return "alias";
-    if (s.includes("brubank") || s.includes("señora") || s.includes("senora") || s.includes("diario")) return "brubank";
+    if (s.includes("brubank") || s.includes("senora") || s.includes("diario")) return "brubank";
     if (s.includes("efectivo")) return "efectivo";
-    return s.trim();
+    return s;
   };
 
   const cargarTodo = async () => {
@@ -141,7 +147,8 @@ export default function AdminMobileCompleto() {
     });
 
     listaGastos.forEach((g: Gasto) => {
-      const esIngresoManual = !!(g.concepto && g.concepto.includes("[INGRESO MANUAL]"));
+      // ChatGPT Paso 6
+      const esIngresoManual = g.tipo_movimiento === "ingreso";
       const montoMovimiento = g.monto || 0;
       const tagCuenta = normalizarCuenta(g.cuenta_salida);
 
@@ -155,7 +162,7 @@ export default function AdminMobileCompleto() {
         if (esIngresoManual) totalEfectivo += montoMovimiento; else totalEfectivo -= montoMovimiento;
       }
 
-      const conceptoLimpio = esIngresoManual ? g.concepto.replace("[INGRESO MANUAL] - ", "") : g.concepto;
+      const conceptoLimpio = g.concepto ? g.concepto.replace("[INGRESO MANUAL] - ", "") : "";
       
       let nombreCuentaMostrable = g.cuenta_salida;
       if (tagCuenta === "alias") nombreCuentaMostrable = "📱 Alias";
@@ -255,21 +262,21 @@ export default function AdminMobileCompleto() {
     setEditando(null); mostrarToast("Producto actualizado"); cargarTodo();
   };
 
+  // ChatGPT Paso 4 e inserción estructural corregida
   const ejecutarRegistroContableManual = async () => {
     if (!movimientoManual.entidad || !movimientoManual.monto) { 
       mostrarToast("Completa los campos obligatorios"); 
       return; 
     }
     
-    const conceptoFinal = tipoMovimiento === 'ingreso' 
-      ? `[INGRESO MANUAL] - ${movimientoManual.concepto || 'Pago recibido'}` 
-      : movimientoManual.concepto || 'Compra/Gasto';
+    const conceptoFinal = movimientoManual.concepto || (tipoMovimiento === "ingreso" ? "Pago recibido" : "Compra/Gasto");
 
     const { error: insertError } = await supabase.from("gastos_distribuidoras").insert({
       distribuidora: movimientoManual.entidad,
       monto: Number(movimientoManual.monto),
       concepto: conceptoFinal,
       cuenta_salida: movimientoManual.cuenta,
+      tipo_movimiento: tipoMovimiento, // Campo estructural de ChatGPT
       comprobante_url: movimientoManual.comprobanteUrl || null
     });
 
@@ -280,9 +287,9 @@ export default function AdminMobileCompleto() {
 
     setMovimientoManual({ entidad: "", monto: "", concepto: "", cuenta: "alias", comprobanteUrl: "" });
     
-    if (typeof window !== "undefined") {
-      window.location.reload();
-    }
+    // ChatGPT Paso 5: Carga síncrona nativa de React sin recargar de forma brusca
+    mostrarToast("Movimiento registrado correctamente");
+    cargarTodo();
   };
 
   const cambiarEstadoPago = async (id: number, nuevoEstado: string) => { 
@@ -721,7 +728,6 @@ export default function AdminMobileCompleto() {
                 <input value={movimientoManual.monto} onChange={e => setMovimientoManual(p => ({ ...p, monto: e.target.value }))} placeholder="Monto ($)" type="number" style={inputStyle} />
                 <input value={movimientoManual.concepto} onChange={e => setMovimientoManual(p => ({ ...p, concepto: e.target.value }))} placeholder="Concepto / Detalle" style={inputStyle} />
                 
-                {/* FIX: Mapeamos los selectores a valores de texto limpios legibles por normalizarCuenta */}
                 <select value={movimientoManual.cuenta} onChange={e => setMovimientoManual(p => ({ ...p, cuenta: e.target.value }))} style={inputStyle}>
                   <option value="alias">📱 Caja: Alias carito.shop</option>
                   <option value="efectivo">💵 Caja: Efectivo</option>
