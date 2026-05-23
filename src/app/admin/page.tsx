@@ -24,7 +24,6 @@ type Reporte = {
   ventas_totales: number; total_gastos: number; ganancia_neta_real: number;
 };
 
-// Interfaz para unificar el historial en pantalla
 type ElementoHistorial = {
   fecha: string;
   entidad: string;
@@ -80,6 +79,15 @@ export default function AdminMobileCompleto() {
 
   useEffect(() => { if (logueado) { cargarTodo(); } }, [logueado]);
 
+  const normalizarCuenta = (str: string): string => {
+    if (!str) return "";
+    let s = str.toLowerCase();
+    s = s.replace(/[💵📱👩]/g, "");
+    s = s.replace("caja:", "");
+    s = s.replace("transferencia:", "");
+    return s.trim();
+  };
+
   const cargarTodo = async () => {
     setCargando(true);
     const { data: prodData } = await supabase.from("productos").select("*").order("id", { ascending: false });
@@ -105,14 +113,14 @@ export default function AdminMobileCompleto() {
     let totalAlias = 0; let totalBrubank = 0; let totalEfectivo = 0;
     let poolHistorial: ElementoHistorial[] = [];
     
-    // 1. Pedidos aprobados de clientes
     listaPedidos.forEach((p: Pedido) => {
       const plataIngresadaEfectiva = p.estado_pago === 'pagado' ? p.total : (p.anticipo || 0);
+      const cuentaFormateada = normalizarCuenta(p.cuenta_ingreso);
 
       if (plataIngresadaEfectiva > 0) {
-        if (p.cuenta_ingreso === 'Alias: carito.shop') totalAlias += plataIngresadaEfectiva;
-        if (p.cuenta_ingreso === 'Brubank Señora (DIARIO.ITALIA.ARENA)') totalBrubank += plataIngresadaEfectiva;
-        if (p.cuenta_ingreso === 'Efectivo') totalEfectivo += plataIngresadaEfectiva;
+        if (cuentaFormateada.includes("alias") || cuentaFormateada.includes("carito.shop")) totalAlias += plataIngresadaEfectiva;
+        else if (cuentaFormateada.includes("brubank") || cuentaFormateada.includes("señora")) totalBrubank += plataIngresadaEfectiva;
+        else if (cuentaFormateada.includes("efectivo")) totalEfectivo += plataIngresadaEfectiva;
       }
 
       if (p.aprobado && plataIngresadaEfectiva > 0) {
@@ -127,19 +135,18 @@ export default function AdminMobileCompleto() {
       }
     });
 
-    // 2. Gastos e ingresos manuales de caja
     listaGastos.forEach((g: Gasto) => {
-      // Forzamos el resultado booleano con !! para asegurar compatibilidad estricta
       const esIngresoManual = !!(g.concepto && g.concepto.includes("[INGRESO MANUAL]"));
       const montoMovimiento = g.monto || 0;
+      const cuentaFormateada = normalizarCuenta(g.cuenta_salida);
 
-      if (g.cuenta_salida === 'Alias: carito.shop') {
+      if (cuentaFormateada.includes("alias") || cuentaFormateada.includes("carito.shop")) {
         if (esIngresoManual) totalAlias += montoMovimiento; else totalAlias -= montoMovimiento;
       }
-      else if (g.cuenta_salida === 'Brubank Señora (DIARIO.ITALIA.ARENA)') {
+      else if (cuentaFormateada.includes("brubank") || cuentaFormateada.includes("señora")) {
         if (esIngresoManual) totalBrubank += montoMovimiento; else totalBrubank -= montoMovimiento;
       }
-      else if (g.cuenta_salida === 'Efectivo') {
+      else if (cuentaFormateada.includes("efectivo")) {
         if (esIngresoManual) totalEfectivo += montoMovimiento; else totalEfectivo -= montoMovimiento;
       }
 
@@ -710,7 +717,6 @@ export default function AdminMobileCompleto() {
               </div>
             </div>
 
-            {/* HISTORIAL CRONOLÓGICO TOTALMENTE UNIFICADO */}
             <div style={{ background: "#111", borderRadius: 16, padding: 14, border: "1px solid #333" }}>
               <h3 style={{ fontSize: 14, margin: "0 0 12px 0" }}>📜 Historial de Flujo de Caja</h3>
               <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: "450vh", overflowY: "auto" }}>
