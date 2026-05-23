@@ -249,25 +249,37 @@ export default function AdminMobileCompleto() {
     setEditando(null); mostrarToast("Producto actualizado"); cargarTodo();
   };
 
-  // FIX: Se agregó await estricto para asegurar que cargue todo tras impactar en Supabase
+  // FIX DEFINITIVO: Convertimos el monto con Number() y forzamos un refresh duro de página
   const ejecutarRegistroContableManual = async () => {
-    if (!movimientoManual.entidad || !movimientoManual.monto) { mostrarToast("Completa los campos obligatorios"); return; }
+    if (!movimientoManual.entidad || !movimientoManual.monto) { 
+      mostrarToast("Completa los campos obligatorios"); 
+      return; 
+    }
     
     const conceptoFinal = tipoMovimiento === 'ingreso' 
       ? `[INGRESO MANUAL] - ${movimientoManual.concepto || 'Pago recibido'}` 
       : movimientoManual.concepto || 'Compra/Gasto';
 
-    await supabase.from("gastos_distribuidoras").insert({
+    const { error: insertError } = await supabase.from("gastos_distribuidoras").insert({
       distribuidora: movimientoManual.entidad,
-      monto: parseInt(movimientoManual.monto),
+      monto: Number(movimientoManual.monto),
       concepto: conceptoFinal,
       cuenta_salida: movimientoManual.cuenta,
       comprobante_url: movimientoManual.comprobanteUrl || null
     });
 
+    if (insertError) {
+      mostrarToast("Error al guardar en Supabase");
+      console.error(insertError);
+      return;
+    }
+
     setMovimientoManual({ entidad: "", monto: "", concepto: "", cuenta: "Alias: carito.shop", comprobanteUrl: "" });
-    mostrarToast(tipoMovimiento === 'ingreso' ? "Ingreso asentado" : "Egreso asentado"); 
-    await cargarTodo();
+    
+    // Forzamos al navegador a recargar el sitio para que levante los nuevos saldos frescos
+    if (typeof window !== "undefined") {
+      window.location.reload();
+    }
   };
 
   const cambiarEstadoPago = async (id: number, nuevoEstado: string) => { 
