@@ -18,7 +18,7 @@ type Pedido = {
 type Gasto = {
   id: number; distribuidora: string; monto: number; concepto: string;
   cuenta_salida: string; creado_en: string; comprobante_url?: string;
-  tipo_movimiento?: string; // ChatGPT Paso 2
+  tipo_movimiento?: string;
 };
 type Reporte = {
   mes: string; total_pedidos: number; total_cobrado: number; total_deuda: number;
@@ -72,6 +72,8 @@ export default function AdminMobileCompleto() {
     cliente: "", telefono: "", direccion: "", productoId: "", tipoPago: "Efectivo", esDropshipping: false, montoEntregado: "" 
   });
 
+  const [categoriaFiltroVenta, setCategoriaFiltroVenta] = useState("");
+
   const [tipoMovimiento, setTipoMovimiento] = useState<'ingreso' | 'egreso'>('egreso');
   
   const [movimientoManual, setMovimientoManual] = useState({
@@ -81,7 +83,6 @@ export default function AdminMobileCompleto() {
 
   useEffect(() => { if (logueado) { cargarTodo(); } }, [logueado]);
 
-  // ChatGPT Paso 3 (Función normalizar optimizada con remoción de acentos)
   const normalizarCuenta = (str: string): string => {
     if (!str) return "";
     const s = str
@@ -147,7 +148,6 @@ export default function AdminMobileCompleto() {
     });
 
     listaGastos.forEach((g: Gasto) => {
-      // ChatGPT Paso 6
       const esIngresoManual = g.tipo_movimiento === "ingreso";
       const montoMovimiento = g.monto || 0;
       const tagCuenta = normalizarCuenta(g.cuenta_salida);
@@ -262,7 +262,6 @@ export default function AdminMobileCompleto() {
     setEditando(null); mostrarToast("Producto actualizado"); cargarTodo();
   };
 
-  // ChatGPT Paso 4 e inserción estructural corregida
   const ejecutarRegistroContableManual = async () => {
     if (!movimientoManual.entidad || !movimientoManual.monto) { 
       mostrarToast("Completa los campos obligatorios"); 
@@ -276,7 +275,7 @@ export default function AdminMobileCompleto() {
       monto: Number(movimientoManual.monto),
       concepto: conceptoFinal,
       cuenta_salida: movimientoManual.cuenta,
-      tipo_movimiento: tipoMovimiento, // Campo estructural de ChatGPT
+      tipo_movimiento: tipoMovimiento,
       comprobante_url: movimientoManual.comprobanteUrl || null
     });
 
@@ -286,8 +285,6 @@ export default function AdminMobileCompleto() {
     }
 
     setMovimientoManual({ entidad: "", monto: "", concepto: "", cuenta: "alias", comprobanteUrl: "" });
-    
-    // ChatGPT Paso 5: Carga síncrona nativa de React sin recargar de forma brusca
     mostrarToast("Movimiento registrado correctamente");
     cargarTodo();
   };
@@ -356,6 +353,7 @@ export default function AdminMobileCompleto() {
     
     mostrarToast("Venta registrada");
     setVentaManual({ cliente: "", telefono: "", direccion: "", productoId: "", tipoPago: "Efectivo", esDropshipping: false, montoEntregado: "" });
+    setCategoriaFiltroVenta(""); 
     setPestana('ventas'); cargarTodo();
   };
 
@@ -408,6 +406,10 @@ export default function AdminMobileCompleto() {
   const pedidosFiltrados = pedidos.filter(p => filtroMes === "Todos" ? true : p.creado_en && p.creado_en.startsWith(filtroMes));
   const pedidosActivos = pedidosFiltrados.filter(p => !(p.aprobado && p.estado_pago === 'pagado' && p.estado_entrega === 'entregado'));
   const productosFiltrados = productos.filter(p => busquedaCatalogo.trim() === "" ? true : p.nombre.toLowerCase().includes(busquedaCatalogo.toLowerCase()) || p.categoria.toLowerCase().includes(busquedaCatalogo.toLowerCase()));
+
+  const productosFiltradosParaVentaManual = productos.filter(p => 
+    categoriaFiltroVenta === "" ? true : p.categoria === categoriaFiltroVenta
+  );
 
   if (!logueado) return (
     <main style={{ minHeight: "100vh", background: "#0a0a0a", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "sans-serif", padding: 16 }}>
@@ -490,15 +492,37 @@ export default function AdminMobileCompleto() {
                   <input value={ventaManual.direccion} onChange={e => setVentaManual(p => ({ ...p, direccion: e.target.value }))} placeholder="Calle y Nro" style={inputStyle} />
                 </div>
               </div>
+
               <div>
-                <div style={{ color: "#888", fontSize: 11, marginBottom: 4 }}>Producto</div>
-                <select value={ventaManual.productoId} onChange={e => setVentaManual(p => ({ ...p, productoId: e.target.value }))} style={inputStyle}>
-                  <option value="">-- Elegí un producto --</option>
-                  {productos.map(p => (
-                    <option key={p.id} value={p.id}>{p.nombre + " ($" + (p.precio_oferta || p.precio).toLocaleString("es-AR") + " - Stock: " + p.stock + ")"}</option>
+                <div style={{ color: "#ff2d78", fontSize: 11, fontWeight: 700, marginBottom: 4 }}>1. Filtrar por Categoría</div>
+                <select 
+                  value={categoriaFiltroVenta} 
+                  onChange={e => {
+                    setCategoriaFiltroVenta(e.target.value);
+                    setVentaManual(p => ({ ...p, productoId: "" })); 
+                  }} 
+                  style={{ ...inputStyle, border: "1px solid #ff2d78" }}
+                >
+                  <option value="">-- Ver Todas las Categorías --</option>
+                  {listadoCategorias.map(cat => (
+                    <option key={cat.id} value={cat.Nombre}>{cat.Nombre}</option>
                   ))}
                 </select>
               </div>
+
+              <div>
+                <div style={{ color: "#888", fontSize: 11, marginBottom: 4 }}>2. Seleccionar Producto</div>
+                <select value={ventaManual.productoId} onChange={e => setVentaManual(p => ({ ...p, productoId: e.target.value }))} style={inputStyle}>
+                  <option value="">-- Elegí un producto --</option>
+                  {productosFiltradosParaVentaManual.map(p => (
+                    <option key={p.id} value={p.id}>{p.nombre + " ($" + (p.precio_oferta || p.precio).toLocaleString("es-AR") + " - Stock: " + p.stock + ")"}</option>
+                  ))}
+                </select>
+                {productosFiltradosParaVentaManual.length === 0 && categoriaFiltroVenta !== "" && (
+                  <span style={{ color: "#EF4444", fontSize: 11, marginTop: 4, display: "block" }}>⚠️ No hay productos cargados en esta categoría todavía.</span>
+                )}
+              </div>
+
               <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#0a0a0a", padding: 12, borderRadius: 10, border: "1px solid #222" }}>
                 <input type="checkbox" id="drop" checked={ventaManual.esDropshipping} onChange={e => setVentaManual(p => ({ ...p, esDropshipping: e.target.checked }))} style={{ transform: "scale(1.3)" }} />
                 <label htmlFor="drop" style={{ fontSize: 13, color: "#ccc" }}>Es Dropshipping (sin descontar stock propio)</label>
@@ -527,7 +551,7 @@ export default function AdminMobileCompleto() {
                 </div>
               )}
 
-              <button onClick={ejecutarCargaVentaManual} style={buttonStyle}>Registrar Venta</button>
+              <button onClick={ventaManual.productoId === "" ? () => mostrarToast("Por favor elegí un producto") : ejecutarCargaVentaManual} style={buttonStyle}>Registrar Venta</button>
             </div>
           </div>
         )}
@@ -538,7 +562,7 @@ export default function AdminMobileCompleto() {
             {productosFiltrados.map((p: Producto) => (
               <div key={p.id} style={{ background: "#111", borderRadius: 14, padding: 12, display: "flex", gap: 12, alignItems: "center", border: "1px solid #222" }}>
                 <div style={{ width: 45, height: 45, borderRadius: 8, background: "#0a0a0a", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden" }}>
-                  {p.imagen ? <img src={p.imagen} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ fontSize: 22 }}>{p.emoji}</span>}
+                  {p.imagen ? <img src={p.imagen} alt={p.nombre} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ fontSize: 22 }}>{p.emoji}</span>}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: "bold", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.nombre}</div>
