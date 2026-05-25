@@ -73,9 +73,10 @@ export default function AdminMobileCompleto() {
   });
 
   const [categoriaFiltroVenta, setCategoriaFiltroVenta] = useState("");
-
-  // NUEVO: Estado para saber qué categoría del catálogo está expandida como acordeón
   const [categoriaAbierta, setCategoriaAbierta] = useState<string | null>(null);
+
+  // NUEVO: Estado para almacenar el producto seleccionado para ver el detalle completo al tocar su foto
+  const [vistaProductoCompleto, setVistaProductoCompleto] = useState<Producto | null>(null);
 
   const [tipoMovimiento, setTipoMovimiento] = useState<'ingreso' | 'egreso'>('egreso');
   
@@ -106,7 +107,14 @@ export default function AdminMobileCompleto() {
   const cargarTodo = async () => {
     setCargando(true);
     const { data: prodData } = await supabase.from("productos").select("*").order("id", { ascending: false });
-    if (prodData) setProductos(prodData);
+    if (prodData) {
+      setProductos(prodData);
+      // Si el modal detallado está abierto, actualizamos sus datos en vivo (ej: si cambia el stock o el activo)
+      if (vistaProductoCompleto) {
+        const actualizado = prodData.find(p => p.id === vistaProductoCompleto.id);
+        if (actualizado) setVistaProductoCompleto(actualizado);
+      }
+    }
     const { data: catData } = await supabase.from("categorias").select("*").order("Nombre", { ascending: true });
     if (catData) {
       setListadoCategorias(catData);
@@ -198,6 +206,7 @@ export default function AdminMobileCompleto() {
   const eliminarProducto = async (id: number) => {
     await supabase.from("productos").delete().eq("id", id);
     setConfirmarEliminar(null);
+    setVistaProductoCompleto(null); // Si estaba viendo el detalle, cerramos el modal
     mostrarToast("Producto eliminado");
     cargarTodo();
   };
@@ -369,9 +378,10 @@ export default function AdminMobileCompleto() {
         const partes = item.split(" x");
         if (partes.length === 2) {
           const nombreProducto = partes[0].trim();
+          const Math_max = Math.max;
           const cantidadRestar = parseInt(partes[1]);
           const { data: prod } = await supabase.from("productos").select("id, stock").eq("nombre", nombreProducto).single();
-          if (prod) await supabase.from("productos").update({ stock: Math.max(0, prod.stock - cantidadRestar) }).eq("id", prod.id);
+          if (prod) await supabase.from("productos").update({ stock: Math_max(0, prod.stock - cantidadRestar) }).eq("id", prod.id);
         }
       }
     }
@@ -408,9 +418,9 @@ export default function AdminMobileCompleto() {
 
   const toggleAcordeonCategoria = (nombreCat: string) => {
     if (categoriaAbierta === nombreCat) {
-      setCategoriaAbierta(null); // Si ya estaba abierta, la contrae
+      setCategoriaAbierta(null);
     } else {
-      setCategoriaAbierta(nombreCat); // Si no, expande la nueva
+      setCategoriaAbierta(nombreCat);
     }
   };
 
@@ -571,7 +581,6 @@ export default function AdminMobileCompleto() {
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <input type="text" value={busquedaCatalogo} onChange={e => setBusquedaCatalogo(e.target.value)} placeholder="Buscar producto por nombre..." style={inputStyle} />
             
-            {/* MODIFICADO: Lógica de Acordeón para Categorías */}
             {busquedaCatalogo.trim() === "" ? (
               listadoCategorias.map((cat) => {
                 const productosDeEstaCat = productos.filter(p => p.categoria === cat.Nombre);
@@ -579,7 +588,6 @@ export default function AdminMobileCompleto() {
 
                 return (
                   <div key={cat.id} style={{ display: "flex", flexDirection: "column", background: "#111", borderRadius: 14, overflow: "hidden", border: "1px solid #222" }}>
-                    {/* Botón Encabezado de la Categoría */}
                     <button 
                       type="button" 
                       onClick={() => toggleAcordeonCategoria(cat.Nombre)}
@@ -593,12 +601,16 @@ export default function AdminMobileCompleto() {
                       </span>
                     </button>
 
-                    {/* Contenedor Desplegable de los Productos */}
                     {estaAbierta && (
                       <div style={{ padding: 10, background: "#0a0a0a", display: "flex", flexDirection: "column", gap: 10, borderTop: "1px solid #222" }}>
                         {productosDeEstaCat.map((p: Producto) => (
                           <div key={p.id} style={{ background: "#111", borderRadius: 12, padding: 12, display: "flex", gap: 12, alignItems: "center", border: "1px solid #222" }}>
-                            <div style={{ width: 45, height: 45, borderRadius: 8, background: "#0a0a0a", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden" }}>
+                            {/* MODIFICADO: Al presionar la miniatura, se abre la vista completa detallada */}
+                            <div 
+                              onClick={() => setVistaProductoCompleto(p)}
+                              style={{ width: 45, height: 45, borderRadius: 8, background: "#0a0a0a", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden", cursor: "pointer", border: "1px dashed #ff2d78" }}
+                              title="Ver detalle completo"
+                            >
                               {p.imagen ? <img src={p.imagen} alt={p.nombre} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ fontSize: 22 }}>{p.emoji}</span>}
                             </div>
                             <div style={{ flex: 1, minWidth: 0 }}>
@@ -628,11 +640,14 @@ export default function AdminMobileCompleto() {
                 );
               })
             ) : (
-              /* Vista Directa cuando se usa la barra de búsqueda superior */
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {productosFiltrados.map((p: Producto) => (
                   <div key={p.id} style={{ background: "#111", borderRadius: 14, padding: 12, display: "flex", gap: 12, alignItems: "center", border: "1px solid #222" }}>
-                    <div style={{ width: 45, height: 45, borderRadius: 8, background: "#0a0a0a", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden" }}>
+                    {/* MODIFICADO: También en la vista de búsqueda, presionar la foto abre el modal */}
+                    <div 
+                      onClick={() => setVistaProductoCompleto(p)}
+                      style={{ width: 45, height: 45, borderRadius: 8, background: "#0a0a0a", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden", cursor: "pointer", border: "1px dashed #ff2d78" }}
+                    >
                       {p.imagen ? <img src={p.imagen} alt={p.nombre} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ fontSize: 22 }}>{p.emoji}</span>}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -891,6 +906,101 @@ export default function AdminMobileCompleto() {
         )}
 
       </div>
+
+      {/* NUEVO MODAL: Vista Detallada de Producto Completo al presionar la Imagen */}
+      {vistaProductoCompleto && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 2500, display: "flex", alignItems: "center", justifyContent: "center", padding: 12 }}>
+          <div onClick={() => setVistaProductoCompleto(null)} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.85)" }} />
+          <div style={{ position: "relative", background: "#111", border: "2px solid #ff2d78", borderRadius: 20, padding: 20, width: "100%", maxWidth: 400, maxHeight: "90vh", overflowY: "auto" }}>
+            
+            {/* Cabecera modal */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <span style={{ color: "#ff2d78", fontSize: 11, fontWeight: 800, textTransform: "uppercase", tracking: 1 } as any}>
+                🏷️ Vista Detallada de Producto
+              </span>
+              <button 
+                type="button" 
+                onClick={() => setVistaProductoCompleto(null)} 
+                style={{ background: "#222", border: "none", color: "#fff", width: 30, height: 30, borderRadius: "50%", cursor: "pointer", fontWeight: "bold" }}
+              >
+                X
+              </button>
+            </div>
+
+            {/* Imagen grande */}
+            <div style={{ width: "100%", height: 200, borderRadius: 12, background: "#0a0a0a", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", marginBottom: 16, border: "1px solid #222" }}>
+              {vistaProductoCompleto.imagen ? (
+                <img src={vistaProductoCompleto.imagen} alt={vistaProductoCompleto.nombre} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+              ) : (
+                <span style={{ fontSize: 64 }}>{vistaProductoCompleto.emoji}</span>
+              )}
+            </div>
+
+            {/* Datos informativos */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
+              <div>
+                <span style={{ color: "#555", fontSize: 11, display: "block" }}>Nombre del Artículo</span>
+                <h3 style={{ margin: 0, fontSize: 18, fontWeight: 900, color: "#fff" }}>{vistaProductoCompleto.nombre}</h3>
+              </div>
+
+              {vistaProductoCompleto.descripcion && (
+                <div>
+                  <span style={{ color: "#555", fontSize: 11, display: "block" }}>Descripción</span>
+                  <p style={{ margin: 0, fontSize: 13, color: "#aaa", lineHeight: "1.4" }}>{vistaProductoCompleto.descripcion}</p>
+                </div>
+              )}
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, background: "#0a0a0a", padding: 12, borderRadius: 10, border: "1px solid #222" }}>
+                <div>
+                  <span style={{ color: "#555", fontSize: 11, display: "block" }}>Precio Efectivo</span>
+                  <strong style={{ color: "#ff2d78", fontSize: 16, fontWeight: 900 }}>
+                    {"$" + (vistaProductoCompleto.precio_oferta || vistaProductoCompleto.precio).toLocaleString("es-AR")}
+                  </strong>
+                </div>
+                <div>
+                  <span style={{ color: "#555", fontSize: 11, display: "block" }}>Stock Disponible</span>
+                  <strong style={{ color: vistaProductoCompleto.stock > 0 ? "#10B981" : "#EF4444", fontSize: 16, fontWeight: 900 }}>
+                    {vistaProductoCompleto.stock + " unidades"}
+                  </strong>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#1a1a1a", padding: "10px 14px", borderRadius: 10 }}>
+                <span style={{ fontSize: 13, color: "#ccc" }}>Estado en Catálogo:</span>
+                <button 
+                  type="button" 
+                  onClick={() => toggleActivo(vistaProductoCompleto.id, vistaProductoCompleto.activo)} 
+                  style={{ padding: "6px 14px", background: vistaProductoCompleto.activo ? "#10B981" : "#374151", border: "none", color: "#fff", borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+                >
+                  {vistaProductoCompleto.activo ? "🟢 Visible / Activo" : "🔴 Oculto / Inactivo"}
+                </button>
+              </div>
+            </div>
+
+            {/* Acciones directas integradas */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, borderTop: "1px solid #222", paddingTop: 14 }}>
+              <button 
+                type="button" 
+                onClick={() => {
+                  setEditando(vistaProductoCompleto);
+                  setVistaProductoCompleto(null); // Cerramos el detalle para abrir el editor
+                }} 
+                style={{ padding: 12, background: "#1D4ED8", color: "#fff", border: "none", borderRadius: 10, fontSize: 13, fontWeight: 800, cursor: "pointer" }}
+              >
+                ✏️ Editar Producto
+              </button>
+              <button 
+                type="button" 
+                onClick={() => setConfirmarEliminar(vistaProductoCompleto)} 
+                style={{ padding: 12, background: "#7F1D1D", color: "#fff", border: "none", borderRadius: 10, fontSize: 13, fontWeight: 800, cursor: "pointer" }}
+              >
+                🗑️ Borrar Producto
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
 
       {editando && (
         <div style={{ position: "fixed", inset: 0, zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 12 }}>
