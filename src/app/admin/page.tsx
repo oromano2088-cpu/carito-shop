@@ -258,7 +258,6 @@ export default function AdminMobileCompleto() {
   const toggleActivo = async (id: number, activo: boolean) => { await supabase.from("productos").update({ activo: !activo }).eq("id", id); cargarTodo(); };
   const actualizarStock = async (id: number, stockActual: number, cambio: number) => { await supabase.from("productos").update({ stock: Math.max(0, stockActual + cambio) }).eq("id", id); cargarTodo(); };
 
-  // RE-INYECTADO: Función de borrado físico que faltaba abajo de actualizarStock
   const eliminarProducto = async (id: number) => {
     await supabase.from("productos").delete().eq("id", id);
     setConfirmarEliminar(null);
@@ -349,7 +348,7 @@ export default function AdminMobileCompleto() {
     }
 
     await supabase.from("pedidos").insert({
-      cliente_nombre: ventaManual.cliente, cliente_telefono: ventaManual.telefono, cliente_direccion: ventaManual.direccion, productos: prodSeleccionado.nombre + " x1", total: totalCalculado, estado_pago: estadoPagoFinal, estado_entrega: 'pendiente_entrega', approved: false, es_financiado: esFinanciado, cuotas_totales: cuotasTotales, cuotas_pagadas: cuotasPagadas, monto_cuota: montoCuota, anticipo: anticipoCalculado, cuenta_ingreso: cuentaAsignada, es_dropshipping: ventaManual.esDropshipping,
+      cliente_nombre: ventaManual.cliente, cliente_telefono: ventaManual.telefono, cliente_direccion: ventaManual.direccion, productos: prodSeleccionado.nombre + " x1", total: totalCalculado, estado_pago: estadoPagoFinal, estado_entrega: 'pendiente_entrega', aprobado: false, es_financiado: esFinanciado, cuotas_totales: cuotasTotales, cuotas_pagadas: cuotasPagadas, monto_cuota: montoCuota, anticipo: anticipoCalculado, cuenta_ingreso: cuentaAsignada, es_dropshipping: ventaManual.esDropshipping,
     });
     
     mostrarToast("Venta registrada");
@@ -720,7 +719,7 @@ export default function AdminMobileCompleto() {
 
       </div>
 
-      {/* MODAL 1: Detalle al presionar la Imagen */}
+      {/* MODAL 1: Detalle al presionar la Imagen (TOTALMENTE RECUPERADO CON TODOS LOS BOTONES) */}
       {vistaProductoCompleto && (
         <div style={{ position: "fixed", inset: 0, zIndex: 2500, display: "flex", alignItems: "center", justifyContent: "center", padding: 12 }}>
           <div onClick={() => setVistaProductoCompleto(null)} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.85)" }} />
@@ -736,9 +735,14 @@ export default function AdminMobileCompleto() {
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
-              <div>
-                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 900 }}>{vistaProductoCompleto.nombre}</h3>
-                <span style={{ color: "#555", fontSize: 11 }}>Categoría Base: {vistaProductoCompleto.categoria}</span>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: 16, fontWeight: 900 }}>{vistaProductoCompleto.nombre}</h3>
+                  <span style={{ color: "#555", fontSize: 11 }}>Categoría Base: {vistaProductoCompleto.categoria}</span>
+                </div>
+                <span style={{ fontSize: 11, padding: "4px 8px", borderRadius: 6, fontWeight: 700, background: vistaProductoCompleto.activo ? "#10B981" : "#EF4444", color: "#fff" }}>
+                  {vistaProductoCompleto.activo ? "Visible en Tienda" : "Oculto"}
+                </span>
               </div>
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, background: "#0a0a0a", padding: 10, borderRadius: 10 }}>
@@ -752,6 +756,7 @@ export default function AdminMobileCompleto() {
                 </div>
               </div>
 
+              {/* Módulo Oferta Relámpago */}
               <div style={{ background: "#161113", border: "1px dashed #ff2d78", padding: 12, borderRadius: 12, marginTop: 4 }}>
                 <span style={{ color: "#ff2d78", fontSize: 12, fontWeight: 900, display: "block", marginBottom: 8 }}>⚡ Configurar Oferta Relámpago</span>
                 
@@ -780,9 +785,27 @@ export default function AdminMobileCompleto() {
               </div>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, borderTop: "1px solid #222", paddingTop: 12 }}>
-              <button type="button" onClick={() => { setEditando(vistaProductoCompleto); setVistaProductoCompleto(null); }} style={{ padding: 10, background: "#1D4ED8", color: "#fff", border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700 }}>✏️ Editar</button>
-              <button type="button" onClick={() => setConfirmarEliminar(vistaProductoCompleto)} style={{ padding: 10, background: "#7F1D1D", color: "#fff", border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700 }}>🗑️ Borrar</button>
+            {/* BOTONES INTERRUPTORES DE ESTADO RECUPERADOS */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
+              <button 
+                type="button" 
+                onClick={() => toggleActivo(vistaProductoCompleto.id, vistaProductoCompleto.activo)} 
+                style={{ padding: 10, background: vistaProductoCompleto.activo ? "#374151" : "#10B981", color: "#fff", border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+              >
+                {vistaProductoCompleto.activo ? "👁️ Ocultar Catálogo" : "👁️ Mostrar Catálogo"}
+              </button>
+              <button 
+                type="button" 
+                onClick={() => { setConfirmarEliminar(vistaProductoCompleto); }} 
+                style={{ padding: 10, background: "#7F1D1D", color: "#fff", border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+              >
+                🗑️ Eliminar Producto
+              </button>
+            </div>
+
+            {/* BOTÓN AZUL EDITAR */}
+            <div style={{ borderTop: "1px solid #222", paddingTop: 12 }}>
+              <button type="button" onClick={() => { setEditando(vistaProductoCompleto); setVistaProductoCompleto(null); }} style={{ width: "100%", padding: 12, background: "#1D4ED8", color: "#fff", border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>✏️ Modificar Datos del Producto</button>
             </div>
 
           </div>
