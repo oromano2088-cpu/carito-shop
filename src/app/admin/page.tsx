@@ -79,10 +79,6 @@ export default function AdminMobileCompleto() {
   const [precioOfertaManual, setPrecioOfertaManual] = useState("");
   const [horasOfertaManual, setHorasOfertaManual] = useState("24");
 
-  const [tipoMovimiento, setTipoMovimiento] = useState<'ingreso' | 'egreso'>('egreso');
-  const [movimientoManual, setMovimientoManual] = useState({ entidad: "", monto: "", concepto: "", cuenta: "alias", comprobanteUrl: "" });
-  const [subiendoComprobante, setSubiendoComprobante] = useState(false);
-
   useEffect(() => { if (logueado) { cargarTodo(); } }, [logueado]);
 
   useEffect(() => {
@@ -127,10 +123,6 @@ export default function AdminMobileCompleto() {
         if (editando) {
           const u = prodData.find(x => x.id === editando.id);
           setEditando(u || null);
-        }
-        if (vistaProductoCompleto) {
-          const u = prodData.find(x => x.id === vistaProductoCompleto.id);
-          setVistaProductoCompleto(u || null);
         }
       }
     }
@@ -205,10 +197,6 @@ export default function AdminMobileCompleto() {
     const { data: prodData } = await supabase.from("productos").select("*").order("id", { ascending: false });
     if (prodData) {
       setProductos(prodData);
-      if (vistaProductoCompleto) {
-        const actualizado = prodData.find(p => p.id === vistaProductoCompleto.id);
-        setVistaProductoCompleto(actualizado || null);
-      }
       if (editando) {
         const actualizadoEd = prodData.find(p => p.id === editando.id);
         setEditando(actualizadoEd || null);
@@ -255,14 +243,18 @@ export default function AdminMobileCompleto() {
 
   const mostrarToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
   const login = () => { if (clave === CLAVE) setLogueado(true); else setError("Clave incorrecta"); };
-  const toggleActivo = async (id: number, activo: boolean) => { await supabase.from("productos").update({ activo: !activo }).eq("id", id); cargarTodo(); };
+  const toggleActivo = async (id: number, activo: boolean) => { 
+    await supabase.from("productos").update({ activo: !activo }).eq("id", id); 
+    mostrarToast(activo ? "Producto pausado y oculto" : "Producto activado y visible");
+    cargarTodo(); 
+  };
   const actualizarStock = async (id: number, stockActual: number, cambio: number) => { await supabase.from("productos").update({ stock: Math.max(0, stockActual + cambio) }).eq("id", id); cargarTodo(); };
 
   const eliminarProducto = async (id: number) => {
     await supabase.from("productos").delete().eq("id", id);
     setConfirmarEliminar(null);
-    setVistaProductoCompleto(null);
-    mostrarToast("Producto eliminado");
+    setEditando(null);
+    mostrarToast("Producto eliminado del sistema");
     cargarTodo();
   };
 
@@ -417,15 +409,16 @@ export default function AdminMobileCompleto() {
         </div>
       )}
 
+      {/* CARTEL DE ADVERTENCIA PARA CONFIRMAR ELIMINACIÓN */}
       {confirmarEliminar && (
         <div style={{ position: "fixed", inset: 0, zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
           <div onClick={() => setConfirmarEliminar(null)} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.85)" }} />
           <div style={{ position: "relative", background: "#111", border: "2px solid #EF4444", borderRadius: 20, padding: 28, width: "100%", maxWidth: 340, textAlign: "center" }}>
             <div style={{ fontSize: 48, marginBottom: 12 }}>🗑️</div>
-            <h3 style={{ color: "#EF4444", fontWeight: 900, fontSize: 18, marginBottom: 10 }}>Eliminar producto</h3>
+            <h3 style={{ color: "#EF4444", fontWeight: 900, fontSize: 18, marginBottom: 10 }}>¿Eliminar producto definitivamente?</h3>
             <p style={{ color: "#fff", fontWeight: 700, fontSize: 15, marginBottom: 20 }}>{confirmarEliminar.nombre}</p>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <button onClick={() => eliminarProducto(confirmarEliminar.id)} style={{ width: "100%", padding: 14, background: "linear-gradient(135deg, #EF4444, #B91C1C)", border: "none", borderRadius: 12, color: "#fff", fontWeight: 800, cursor: "pointer", fontSize: 13 }}>Sí, deseo eliminar el producto de la lista de productos.</button>
+              <button onClick={() => eliminarProducto(confirmarEliminar.id)} style={{ width: "100%", padding: 14, background: "linear-gradient(135deg, #EF4444, #B91C1C)", border: "none", borderRadius: 12, color: "#fff", fontWeight: 800, cursor: "pointer", fontSize: 13 }}>Sí, borrar del catálogo</button>
               <button onClick={() => setConfirmarEliminar(null)} style={{ width: "100%", padding: 12, background: "#222", border: "none", borderRadius: 12, color: "#fff", fontWeight: 700, cursor: "pointer", fontSize: 13 }}>Cancelar</button>
             </div>
           </div>
@@ -554,7 +547,7 @@ export default function AdminMobileCompleto() {
                       <div style={{ padding: 10, background: "#0a0a0a", display: "flex", flexDirection: "column", gap: 10 }}>
                         {productosEnOfertaRelampago.map((p) => (
                           <div key={p.id} style={{ background: "#111", borderRadius: 12, padding: 12, display: "flex", gap: 12, alignItems: "center", border: "1px solid #ff2d78" }}>
-                            <div onClick={() => setVistaProductoCompleto(p)} style={{ width: 45, height: 45, borderRadius: 8, background: "#0a0a0a", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden", cursor: "pointer", border: "1px dashed #ff2d78" }}>
+                            <div style={{ width: 45, height: 45, borderRadius: 8, background: "#0a0a0a", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden", border: "1px dashed #ff2d78" }}>
                               {p.imagen ? <img src={p.imagen} alt={p.nombre} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ fontSize: 22 }}>{p.emoji}</span>}
                             </div>
                             <div style={{ flex: 1, minWidth: 0 }}>
@@ -597,12 +590,12 @@ export default function AdminMobileCompleto() {
                       {estaAbierta && (
                         <div style={{ padding: 10, background: "#0a0a0a", display: "flex", flexDirection: "column", gap: 10, borderTop: "1px solid #222" }}>
                           {productosDeEstaCat.map((p: Producto) => (
-                            <div key={p.id} style={{ background: "#111", borderRadius: 12, padding: 12, display: "flex", gap: 12, alignItems: "center", border: "1px solid #222" }}>
-                              <div onClick={() => setVistaProductoCompleto(p)} style={{ width: 45, height: 45, borderRadius: 8, background: "#0a0a0a", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden", cursor: "pointer", border: "1px dashed #ff2d78" }}>
+                            <div key={p.id} style={{ background: "#111", borderRadius: 12, padding: 12, display: "flex", gap: 12, alignItems: "center", border: "1px solid #222", opacity: p.activo ? 1 : 0.4 }}>
+                              <div style={{ width: 45, height: 45, borderRadius: 8, background: "#0a0a0a", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden", border: "1px dashed #ff2d78" }}>
                                 {p.imagen ? <img src={p.imagen} alt={p.nombre} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ fontSize: 22 }}>{p.emoji}</span>}
                               </div>
                               <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontSize: 13, fontWeight: "bold", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.nombre}</div>
+                                <div style={{ fontSize: 13, fontWeight: "bold", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.nombre} {!p.activo && <span style={{fontSize:10, color:'#EF4444'}}>(Oculto)</span>}</div>
                                 <div style={{ fontSize: 12, color: "#ff2d78", fontWeight: 800 }}>
                                   {p.precio_oferta ? (
                                     <>
@@ -618,7 +611,7 @@ export default function AdminMobileCompleto() {
                                 </div>
                               </div>
                               <div style={{ display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }}>
-                                <button type="button" onClick={() => setEditando(p)} style={{ padding: "6px 10px", background: "#1D4ED8", color: "#fff", border: "none", borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Editar</button>
+                                <button type="button" onClick={() => setEditando(p)} style={{ padding: "8px 12px", background: "#1D4ED8", color: "#fff", border: "none", borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Editar</button>
                               </div>
                             </div>
                           ))}
@@ -632,7 +625,7 @@ export default function AdminMobileCompleto() {
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {productosFiltrados.map((p: Producto) => (
                   <div key={p.id} style={{ background: "#111", borderRadius: 14, padding: 12, display: "flex", gap: 12, alignItems: "center", border: "1px solid #222" }}>
-                    <div onClick={() => setVistaProductoCompleto(p)} style={{ width: 45, height: 45, borderRadius: 8, background: "#0a0a0a", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden", cursor: "pointer", border: "1px dashed #ff2d78" }}>
+                    <div style={{ width: 45, height: 45, borderRadius: 8, background: "#0a0a0a", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden", border: "1px dashed #ff2d78" }}>
                       {p.imagen ? <img src={p.imagen} alt={p.nombre} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ fontSize: 22 }}>{p.emoji}</span>}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -719,125 +712,38 @@ export default function AdminMobileCompleto() {
 
       </div>
 
-      {/* MODAL 1: Detalle al presionar la Imagen (TOTALMENTE RECUPERADO CON TODOS LOS BOTONES) */}
-      {vistaProductoCompleto && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 2500, display: "flex", alignItems: "center", justifyContent: "center", padding: 12 }}>
-          <div onClick={() => setVistaProductoCompleto(null)} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.85)" }} />
-          <div style={{ position: "relative", background: "#111", border: "2px solid #ff2d78", borderRadius: 20, padding: 20, width: "100%", maxWidth: 400, maxHeight: "90vh", overflowY: "auto" }}>
-            
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <span style={{ color: "#ff2d78", fontSize: 11, fontWeight: 800 }}>🏷️ INFORMACIÓN COMPLETA</span>
-              <button type="button" onClick={() => setVistaProductoCompleto(null)} style={{ background: "#222", border: "none", color: "#fff", width: 30, height: 30, borderRadius: "50%", fontWeight: "bold" }}>X</button>
-            </div>
-
-            <div style={{ width: "100%", height: 160, borderRadius: 12, background: "#0a0a0a", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", marginBottom: 14, border: "1px solid #222" }}>
-              {vistaProductoCompleto.imagen ? <img src={vistaProductoCompleto.imagen} alt={vistaProductoCompleto.nombre} style={{ width: "100%", height: "100%", objectFit: "contain" }} /> : <span style={{ fontSize: 48 }}>{vistaProductoCompleto.emoji}</span>}
-            </div>
-
-            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: 16, fontWeight: 900 }}>{vistaProductoCompleto.nombre}</h3>
-                  <span style={{ color: "#555", fontSize: 11 }}>Categoría Base: {vistaProductoCompleto.categoria}</span>
-                </div>
-                <span style={{ fontSize: 11, padding: "4px 8px", borderRadius: 6, fontWeight: 700, background: vistaProductoCompleto.activo ? "#10B981" : "#EF4444", color: "#fff" }}>
-                  {vistaProductoCompleto.activo ? "Visible en Tienda" : "Oculto"}
-                </span>
-              </div>
-
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, background: "#0a0a0a", padding: 10, borderRadius: 10 }}>
-                <div>
-                  <span style={{ color: "#444", fontSize: 10, display: "block" }}>Precio Lista</span>
-                  <strong style={{ fontSize: 14 }}>${vistaProductoCompleto.precio}</strong>
-                </div>
-                <div>
-                  <span style={{ color: "#444", fontSize: 10, display: "block" }}>Stock Real</span>
-                  <strong style={{ fontSize: 14, color: "#10B981" }}>{vistaProductoCompleto.stock} u.</strong>
-                </div>
-              </div>
-
-              {/* Módulo Oferta Relámpago */}
-              <div style={{ background: "#161113", border: "1px dashed #ff2d78", padding: 12, borderRadius: 12, marginTop: 4 }}>
-                <span style={{ color: "#ff2d78", fontSize: 12, fontWeight: 900, display: "block", marginBottom: 8 }}>⚡ Configurar Oferta Relámpago</span>
-                
-                {vistaProductoCompleto.precio_oferta ? (
-                  <div style={{ textAlign: "center", padding: "4px 0" }}>
-                    <div style={{ fontSize: 14, fontWeight: 800, color: "#10B981" }}>¡OFERTA ACTIVA A ${vistaProductoCompleto.precio_oferta}!</div>
-                    <div style={{ fontSize: 12, color: "#aaa", margin: "4px 0 10px 0" }}>⏳ Quedan: {calcularTiempoRestanteString(vistaProductoCompleto.oferta_hasta)}</div>
-                    <button type="button" onClick={() => ejecutarRemoverOfertaManual(vistaProductoCompleto.id)} style={{ ...buttonStyle, padding: 8, background: "#222", border: "1px solid #EF4444", color: "#EF4444" }}>Apagar Oferta de Inmediato</button>
-                  </div>
-                ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-                      <input type="number" placeholder="Precio Oferta ($)" value={precioOfertaManual} onChange={e => setPrecioOfertaManual(e.target.value)} style={{ ...inputStyle, padding: 8, fontSize: 12 }} />
-                      <select value={horasOfertaManual} onChange={e => setHorasOfertaManual(e.target.value)} style={{ ...inputStyle, padding: 8, fontSize: 12 }}>
-                        <option value="1">Duración: 1 Hora</option>
-                        <option value="3">Duración: 3 Horas</option>
-                        <option value="6">Duración: 6 Horas</option>
-                        <option value="12">Duración: 12 Horas</option>
-                        <option value="24">Duración: 24 Horas</option>
-                        <option value="48">Duración: 48 Horas</option>
-                      </select>
-                    </div>
-                    <button type="button" onClick={() => lanzarOfertaRelampagoGlobal(vistaProductoCompleto.id)} style={{ ...buttonStyle, padding: 10, fontSize: 12 }}>⚡ Lanzar Oferta Relámpago</button>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* BOTONES INTERRUPTORES DE ESTADO RECUPERADOS */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
-              <button 
-                type="button" 
-                onClick={() => toggleActivo(vistaProductoCompleto.id, vistaProductoCompleto.activo)} 
-                style={{ padding: 10, background: vistaProductoCompleto.activo ? "#374151" : "#10B981", color: "#fff", border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
-              >
-                {vistaProductoCompleto.activo ? "👁️ Ocultar Catálogo" : "👁️ Mostrar Catálogo"}
-              </button>
-              <button 
-                type="button" 
-                onClick={() => { setConfirmarEliminar(vistaProductoCompleto); }} 
-                style={{ padding: 10, background: "#7F1D1D", color: "#fff", border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
-              >
-                🗑️ Eliminar Producto
-              </button>
-            </div>
-
-            {/* BOTÓN AZUL EDITAR */}
-            <div style={{ borderTop: "1px solid #222", paddingTop: 12 }}>
-              <button type="button" onClick={() => { setEditando(vistaProductoCompleto); setVistaProductoCompleto(null); }} style={{ width: "100%", padding: 12, background: "#1D4ED8", color: "#fff", border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>✏️ Modificar Datos del Producto</button>
-            </div>
-
-          </div>
-        </div>
-      )}
-
-      {/* MODAL 2: Formulario tradicional de Edición */}
+      {/* MODAL UNIFICADO: Abre al tocar "Editar". Con Scroll Móvil asegurado y todos los botones juntos */}
       {editando && (
         <div style={{ position: "fixed", inset: 0, zIndex: 2000, display: "flex", alignItems: "center", justifyContent: "center", padding: 12 }}>
           <div onClick={() => setEditando(null)} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.85)" }} />
-          <div style={{ position: "relative", background: "#111", border: "1px solid #ff2d78", borderRadius: 20, padding: 16, width: "100%", maxWidth: 420, maxHeight: "85vh", overflowY: "auto" }}>
-            <h3 style={{ ...neon, margin: "0 0 16px 0" }}>Editar Producto</h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ position: "relative", background: "#111", border: "2px solid #ff2d78", borderRadius: 20, padding: 20, width: "100%", maxWidth: 420, maxHeight: "90vh", overflowY: "auto", boxSizing: "border-box" }}>
+            
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+              <h3 style={{ ...neon, margin: 0, fontSize: 16, fontWeight: 900 }}>⚙️ MODIFICAR PRODUCTO</h3>
+              <button type="button" onClick={() => setEditando(null)} style={{ background: "#222", border: "none", color: "#fff", width: 30, height: 30, borderRadius: "50%", fontWeight: "bold", cursor: "pointer" }}>X</button>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               
               <div>
-                <span style={{ color: "#666", fontSize: 11, display: "block", marginBottom: 4 }}>Nombre</span>
+                <span style={{ color: "#888", fontSize: 11, display: "block", marginBottom: 4 }}>Nombre del Producto</span>
                 <input value={editando.nombre} onChange={e => setEditando(p => p ? { ...p, nombre: e.target.value } : null)} placeholder="Nombre" style={inputStyle} />
               </div>
               
               <div>
-                <span style={{ color: "#666", fontSize: 11, display: "block", marginBottom: 4 }}>Precio Base ($)</span>
+                <span style={{ color: "#888", fontSize: 11, display: "block", marginBottom: 4 }}>Precio Lista Base ($)</span>
                 <input type="number" value={editando.precio} onChange={e => setEditando(p => p ? { ...p, precio: parseInt(e.target.value) } : null)} placeholder="Precio" style={inputStyle} />
               </div>
 
-              <div style={{ background: "#0a0a0a", padding: 12, borderRadius: 12, border: "1px dashed #ff2d78", marginTop: 6 }}>
-                <span style={{ color: "#ff2d78", fontSize: 12, fontWeight: 800, display: "block", marginBottom: 6 }}>⚡ Oferta Relámpago desde Editor</span>
+              {/* Módulo Oferta Relámpago */}
+              <div style={{ background: "#0a0a0a", padding: 12, borderRadius: 12, border: "1px dashed #ff2d78" }}>
+                <span style={{ color: "#ff2d78", fontSize: 12, fontWeight: 800, display: "block", marginBottom: 6 }}>⚡ Oferta Relámpago</span>
                 
                 {editando.precio_oferta ? (
                   <div style={{ textAlign: "center", padding: "4px 0" }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: "#10B981" }}>Oferta corriendo a ${editando.precio_oferta}</div>
-                    <div style={{ fontSize: 11, color: "#777", margin: "2px 0 8px 0" }}>⏳ Cierra en: {calcularTiempoRestanteString(editando.oferta_hasta)}</div>
-                    <button type="button" onClick={() => ejecutarRemoverOfertaManual(editando.id)} style={{ width: "100%", padding: 6, borderRadius: 6, background: "#222", border: "1px solid #EF4444", color: "#EF4444", fontSize: 11, cursor: "pointer" }}>Apagar Cuenta Regresiva</button>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#10B981" }}>¡Oferta Activa a ${editando.precio_oferta}!</div>
+                    <div style={{ fontSize: 11, color: "#aaa", margin: "4px 0 8px 0" }}>⏳ Quedan: {calcularTiempoRestanteString(editando.oferta_hasta)}</div>
+                    <button type="button" onClick={() => ejecutarRemoverOfertaManual(editando.id)} style={{ width: "100%", padding: 8, borderRadius: 8, background: "#222", border: "1px solid #EF4444", color: "#EF4444", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Apagar Oferta</button>
                   </div>
                 ) : (
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -873,10 +779,35 @@ export default function AdminMobileCompleto() {
                 )}
               </div>
 
-              <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
-                <button type="button" onClick={() => setEditando(null)} style={{ ...buttonStyle, background: "#222" }}>Cancelar</button>
-                <button type="button" onClick={guardarEdicion} style={buttonStyle}>Guardar</button>
+              {/* SECCIÓN INTERRUPTORES DE ESTADO CORREGIDOS (VISIBLES SÍ O SÍ) */}
+              <div style={{ background: "#161616", padding: 12, borderRadius: 12, border: "1px solid #222", display: "flex", flexDirection: "column", gap: 8 }}>
+                <span style={{ color: "#aaa", fontSize: 11, fontWeight: 700 }}>👁️ VISIBILIDAD Y CONTROL</span>
+                
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                  <button 
+                    type="button" 
+                    onClick={() => toggleActivo(editando.id, editando.activo)} 
+                    style={{ padding: 10, background: editando.activo ? "#374151" : "#10B981", color: "#fff", border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+                  >
+                    {editando.activo ? "⏸️ Ocultar Tienda" : "▶️ Mostrar Tienda"}
+                  </button>
+                  
+                  <button 
+                    type="button" 
+                    onClick={() => setConfirmarEliminar(editando)} 
+                    style={{ padding: 10, background: "#7F1D1D", color: "#fff", border: "none", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+                  >
+                    🗑️ Eliminar Producto
+                  </button>
+                </div>
               </div>
+
+              {/* BOTONES DE GUARDADO GENERAL */}
+              <div style={{ display: "flex", gap: 10, borderTop: "1px solid #222", paddingTop: 12, marginTop: 4 }}>
+                <button type="button" onClick={() => setEditando(null)} style={{ ...buttonStyle, padding: 12, background: "#222", fontWeight: 700 }}>Cerrar panel</button>
+                <button type="button" onClick={guardarEdicion} style={{ ...buttonStyle, padding: 12 }}>Guardar Cambios</button>
+              </div>
+
             </div>
           </div>
         </div>
