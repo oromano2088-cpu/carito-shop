@@ -69,10 +69,13 @@ export default function AdminMobileCompleto() {
   const [nuevoSaldoDeuda, setNuevoSaldoDeuda] = useState("");
 
   const [ventaManual, setVentaManual] = useState({ 
-    cliente: "", telefono: "", direccion: "", productoId: "", tipoPago: "Efectivo", esDropshipping: false, montoEntregado: "" 
+    cliente: "", telephone: "", direccion: "", productoId: "", tipoPago: "Efectivo", esDropshipping: false, montoEntregado: "", telefono: ""
   });
 
   const [categoriaFiltroVenta, setCategoriaFiltroVenta] = useState("");
+
+  // NUEVO: Estado para saber qué categoría del catálogo está expandida como acordeón
+  const [categoriaAbierta, setCategoriaAbierta] = useState<string | null>(null);
 
   const [tipoMovimiento, setTipoMovimiento] = useState<'ingreso' | 'egreso'>('egreso');
   
@@ -270,7 +273,7 @@ export default function AdminMobileCompleto() {
     
     const conceptoFinal = movimientoManual.concepto || (tipoMovimiento === "ingreso" ? "Pago recibido" : "Compra/Gasto");
 
-    const { error: insertError } = await supabase.from("gastos_distribuidoras").insert({
+    const { error: insertError = null } = await supabase.from("gastos_distribuidoras").insert({
       distribuidora: movimientoManual.entidad,
       monto: Number(movimientoManual.monto),
       concepto: conceptoFinal,
@@ -352,7 +355,7 @@ export default function AdminMobileCompleto() {
     });
     
     mostrarToast("Venta registrada");
-    setVentaManual({ cliente: "", telefono: "", direccion: "", productoId: "", tipoPago: "Efectivo", esDropshipping: false, montoEntregado: "" });
+    setVentaManual({ cliente: "", telephone: "", direccion: "", productoId: "", tipoPago: "Efectivo", esDropshipping: false, montoEntregado: "", telefono: "" });
     setCategoriaFiltroVenta(""); 
     setPestana('ventas'); cargarTodo();
   };
@@ -401,6 +404,14 @@ export default function AdminMobileCompleto() {
     setNuevoSaldoDeuda("");
     mostrarToast("Deuda actualizada en vivo");
     cargarTodo();
+  };
+
+  const toggleAcordeonCategoria = (nombreCat: string) => {
+    if (categoriaAbierta === nombreCat) {
+      setCategoriaAbierta(null); // Si ya estaba abierta, la contrae
+    } else {
+      setCategoriaAbierta(nombreCat); // Si no, expande la nueva
+    }
   };
 
   const pedidosFiltrados = pedidos.filter(p => filtroMes === "Todos" ? true : p.creado_en && p.creado_en.startsWith(filtroMes));
@@ -551,41 +562,102 @@ export default function AdminMobileCompleto() {
                 </div>
               )}
 
-              <button onClick={ventaManual.productoId === "" ? () => mostrarToast("Por favor elegí un producto") : ejecutarCargaVentaManual} style={buttonStyle}>Registrar Venta</button>
+              <button type="button" onClick={ventaManual.productoId === "" ? () => mostrarToast("Por favor elegí un producto") : ejecutarCargaVentaManual} style={buttonStyle}>Registrar Venta</button>
             </div>
           </div>
         )}
 
         {pestana === 'catalogo' && (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <input type="text" value={busquedaCatalogo} onChange={e => setBusquedaCatalogo(e.target.value)} placeholder="Buscar producto..." style={inputStyle} />
-            {productosFiltrados.map((p: Producto) => (
-              <div key={p.id} style={{ background: "#111", borderRadius: 14, padding: 12, display: "flex", gap: 12, alignItems: "center", border: "1px solid #222" }}>
-                <div style={{ width: 45, height: 45, borderRadius: 8, background: "#0a0a0a", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden" }}>
-                  {p.imagen ? <img src={p.imagen} alt={p.nombre} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ fontSize: 22 }}>{p.emoji}</span>}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: "bold", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.nombre}</div>
-                  <div style={{ fontSize: 12, color: "#ff2d78", fontWeight: 800 }}>{"$" + (p.precio_oferta || p.precio).toLocaleString("es-AR")}</div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
-                    <button onClick={() => actualizarStock(p.id, p.stock, -1)} style={{ background: "#222", border: "1px solid #333", color: "#fff", width: 24, height: 24, borderRadius: 4, cursor: "pointer" }}>-</button>
-                    <span style={{ fontSize: 12, color: "#aaa" }}>{"Stock: " + p.stock}</span>
-                    <button onClick={() => actualizarStock(p.id, p.stock, 1)} style={{ background: "#222", border: "1px solid #333", color: "#fff", width: 24, height: 24, borderRadius: 4, cursor: "pointer" }}>+</button>
-                    <button onClick={() => toggleActivo(p.id, p.activo)} style={{ padding: "2px 8px", background: p.activo ? "#10B981" : "#374151", border: "none", color: "#fff", borderRadius: 4, fontSize: 11, cursor: "pointer" }}>
-                      {p.activo ? "Activo" : "Inactivo"}
+            <input type="text" value={busquedaCatalogo} onChange={e => setBusquedaCatalogo(e.target.value)} placeholder="Buscar producto por nombre..." style={inputStyle} />
+            
+            {/* MODIFICADO: Lógica de Acordeón para Categorías */}
+            {busquedaCatalogo.trim() === "" ? (
+              listadoCategorias.map((cat) => {
+                const productosDeEstaCat = productos.filter(p => p.categoria === cat.Nombre);
+                const estaAbierta = categoriaAbierta === cat.Nombre;
+
+                return (
+                  <div key={cat.id} style={{ display: "flex", flexDirection: "column", background: "#111", borderRadius: 14, overflow: "hidden", border: "1px solid #222" }}>
+                    {/* Botón Encabezado de la Categoría */}
+                    <button 
+                      type="button" 
+                      onClick={() => toggleAcordeonCategoria(cat.Nombre)}
+                      style={{ width: "100%", padding: "16px 14px", background: estaAbierta ? "#1c0510" : "#111", border: "none", color: "#fff", display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer", outline: "none", textAlign: "left" }}
+                    >
+                      <span style={{ fontWeight: 800, fontSize: 14, color: estaAbierta ? "#ff2d78" : "#fff" }}>
+                        📁 {cat.Nombre} <span style={{ color: "#555", fontSize: 12, fontWeight: 400 }}>({productosDeEstaCat.length})</span>
+                      </span>
+                      <span style={{ fontSize: 12, color: "#ff2d78", fontWeight: "bold" }}>
+                        {estaAbierta ? "▲ CERRAR" : "▼ EXPANDIR"}
+                      </span>
                     </button>
+
+                    {/* Contenedor Desplegable de los Productos */}
+                    {estaAbierta && (
+                      <div style={{ padding: 10, background: "#0a0a0a", display: "flex", flexDirection: "column", gap: 10, borderTop: "1px solid #222" }}>
+                        {productosDeEstaCat.map((p: Producto) => (
+                          <div key={p.id} style={{ background: "#111", borderRadius: 12, padding: 12, display: "flex", gap: 12, alignItems: "center", border: "1px solid #222" }}>
+                            <div style={{ width: 45, height: 45, borderRadius: 8, background: "#0a0a0a", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden" }}>
+                              {p.imagen ? <img src={p.imagen} alt={p.nombre} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ fontSize: 22 }}>{p.emoji}</span>}
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 13, fontWeight: "bold", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.nombre}</div>
+                              <div style={{ fontSize: 12, color: "#ff2d78", fontWeight: 800 }}>{"$" + (p.precio_oferta || p.precio).toLocaleString("es-AR")}</div>
+                              <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
+                                <button type="button" onClick={() => actualizarStock(p.id, p.stock, -1)} style={{ background: "#222", border: "1px solid #333", color: "#fff", width: 24, height: 24, borderRadius: 4, cursor: "pointer" }}>-</button>
+                                <span style={{ fontSize: 12, color: "#aaa" }}>{"Stock: " + p.stock}</span>
+                                <button type="button" onClick={() => actualizarStock(p.id, p.stock, 1)} style={{ background: "#222", border: "1px solid #333", color: "#fff", width: 24, height: 24, borderRadius: 4, cursor: "pointer" }}>+</button>
+                                <button type="button" onClick={() => toggleActivo(p.id, p.activo)} style={{ padding: "2px 8px", background: p.activo ? "#10B981" : "#374151", border: "none", color: "#fff", borderRadius: 4, fontSize: 11, cursor: "pointer" }}>
+                                  {p.activo ? "Activo" : "Inactivo"}
+                                </button>
+                              </div>
+                            </div>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }}>
+                              <button type="button" onClick={() => setEditando(p)} style={{ padding: "6px 10px", background: "#1D4ED8", color: "#fff", border: "none", borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Editar</button>
+                              <button type="button" onClick={() => setConfirmarEliminar(p)} style={{ padding: "6px 10px", background: "#7F1D1D", color: "#fff", border: "none", borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>🗑️ Borrar</button>
+                            </div>
+                          </div>
+                        ))}
+                        {productosDeEstaCat.length === 0 && (
+                          <div style={{ color: "#444", fontSize: 12, textAlign: "center", padding: 10 }}>No hay productos en esta categoría.</div>
+                        )}
+                      </div>
+                    )}
                   </div>
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }}>
-                  <button onClick={() => setEditando(p)} style={{ padding: "6px 10px", background: "#1D4ED8", color: "#fff", border: "none", borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
-                    Editar
-                  </button>
-                  <button onClick={() => setConfirmarEliminar(p)} style={{ padding: "6px 10px", background: "#7F1D1D", color: "#fff", border: "none", borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
-                    🗑️ Borrar
-                  </button>
-                </div>
+                );
+              })
+            ) : (
+              /* Vista Directa cuando se usa la barra de búsqueda superior */
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {productosFiltrados.map((p: Producto) => (
+                  <div key={p.id} style={{ background: "#111", borderRadius: 14, padding: 12, display: "flex", gap: 12, alignItems: "center", border: "1px solid #222" }}>
+                    <div style={{ width: 45, height: 45, borderRadius: 8, background: "#0a0a0a", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, overflow: "hidden" }}>
+                      {p.imagen ? <img src={p.imagen} alt={p.nombre} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ fontSize: 22 }}>{p.emoji}</span>}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: "bold", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.nombre}</div>
+                      <div style={{ fontSize: 12, color: "#ff2d78", fontWeight: 800 }}>{"$" + (p.precio_oferta || p.precio).toLocaleString("es-AR")}</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
+                        <button type="button" onClick={() => actualizarStock(p.id, p.stock, -1)} style={{ background: "#222", border: "1px solid #333", color: "#fff", width: 24, height: 24, borderRadius: 4, cursor: "pointer" }}>-</button>
+                        <span style={{ fontSize: 12, color: "#aaa" }}>{"Stock: " + p.stock}</span>
+                        <button type="button" onClick={() => actualizarStock(p.id, p.stock, 1)} style={{ background: "#222", border: "1px solid #333", color: "#fff", width: 24, height: 24, borderRadius: 4, cursor: "pointer" }}>+</button>
+                        <button type="button" onClick={() => toggleActivo(p.id, p.activo)} style={{ padding: "2px 8px", background: p.activo ? "#10B981" : "#374151", border: "none", color: "#fff", borderRadius: 4, fontSize: 11, cursor: "pointer" }}>
+                          {p.activo ? "Activo" : "Inactivo"}
+                        </button>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }}>
+                      <button type="button" onClick={() => setEditando(p)} style={{ padding: "6px 10px", background: "#1D4ED8", color: "#fff", border: "none", borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Editar</button>
+                      <button type="button" onClick={() => setConfirmarEliminar(p)} style={{ padding: "6px 10px", background: "#7F1D1D", color: "#fff", border: "none", borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>🗑️ Borrar</button>
+                    </div>
+                  </div>
+                ))}
+                {productosFiltrados.length === 0 && (
+                  <div style={{ color: "#444", fontSize: 12, textAlign: "center", padding: 20 }}>No se encontraron productos que coincidan.</div>
+                )}
               </div>
-            ))}
+            )}
           </div>
         )}
 
@@ -608,7 +680,7 @@ export default function AdminMobileCompleto() {
               {creandoNuevaCat && (
                 <div style={{ display: "flex", gap: 6 }}>
                   <input value={nuevaCatNombre} onChange={e => setNuevaCatNombre(e.target.value)} placeholder="Nombre categoria" style={inputStyle} />
-                  <button onClick={ejecutarCrearCategoria} style={{ background: "#10B981", border: "none", color: "#fff", padding: 10, borderRadius: 8, cursor: "pointer", fontWeight: 700 }}>Ok</button>
+                  <button type="button" onClick={ejecutarCrearCategoria} style={{ background: "#10B981", border: "none", color: "#fff", padding: 10, borderRadius: 8, cursor: "pointer", fontWeight: 700 }}>Ok</button>
                 </div>
               )}
               <input value={nuevo.stock} onChange={e => setNuevo(p => ({ ...p, stock: e.target.value }))} placeholder="Stock inicial" type="number" style={inputStyle} />
@@ -619,7 +691,7 @@ export default function AdminMobileCompleto() {
                 </div>
               ))}
               {subiendo && <div style={{ color: "#ff2d78", fontSize: 13 }}>Subiendo foto...</div>}
-              <button onClick={agregar} style={buttonStyle}>Publicar Producto</button>
+              <button type="button" onClick={agregar} style={buttonStyle}>Publicar Producto</button>
             </div>
           </div>
         )}
@@ -666,8 +738,8 @@ export default function AdminMobileCompleto() {
                               placeholder="¿Cuánto debe?" 
                               style={{ background: "#000", border: "1px solid #EF4444", color: "#fff", padding: 4, borderRadius: 6, width: 80, fontSize: 11, textAlign: "center" }}
                             />
-                            <button onClick={() => guardarModificacionDeudaManual(p.id, p.total)} style={{ background: "#10B981", border: "none", color: "#fff", padding: "4px 8px", borderRadius: 4, fontSize: 11, cursor: "pointer", fontWeight: "bold" }}>✓</button>
-                            <button onClick={() => setEditandoDeudaId(null)} style={{ background: "#333", border: "none", color: "#fff", padding: "4px 8px", borderRadius: 4, fontSize: 11, cursor: "pointer" }}>X</button>
+                            <button type="button" onClick={() => guardarModificacionDeudaManual(p.id, p.total)} style={{ background: "#10B981", border: "none", color: "#fff", padding: "4px 8px", borderRadius: 4, fontSize: 11, cursor: "pointer", fontWeight: "bold" }}>✓</button>
+                            <button type="button" onClick={() => setEditandoDeudaId(null)} style={{ background: "#333", border: "none", color: "#fff", padding: "4px 8px", borderRadius: 4, fontSize: 11, cursor: "pointer" }}>X</button>
                           </div>
                         ) : (
                           <div onClick={() => { setEditandoDeudaId(p.id); setNuevoSaldoDeuda(saldoDeudaReal.toString()); }} style={{ fontSize: 12, color: saldoDeudaReal > 0 ? "#EF4444" : "#10B981", fontWeight: 800, cursor: "pointer", background: "rgba(239, 68, 68, 0.08)", padding: "2px 6px", borderRadius: 4, display: "inline-block" }}>
@@ -684,7 +756,7 @@ export default function AdminMobileCompleto() {
                     <div style={{ background: "rgba(255,45,120,0.04)", padding: 8, borderRadius: 6, marginBottom: 8, display: "flex", justifyContent: "space-between", fontSize: 11 }}>
                       <span>{"Cuotas: " + p.cuotas_pagadas + "/" + p.cuotas_totales + " ($" + (p.monto_cuota || 0).toLocaleString("es-AR") + " c/u)"}</span>
                       {p.estado_pago !== 'pagado' && (
-                        <button onClick={() => pagarCuota(p)} style={{ background: "#ff2d78", color: "#fff", border: "none", borderRadius: 4, padding: "2px 8px", fontSize: 10, cursor: "pointer" }}>
+                        <button type="button" onClick={() => pagarCuota(p)} style={{ background: "#ff2d78", color: "#fff", border: "none", borderRadius: 4, padding: "2px 8px", fontSize: 10, cursor: "pointer" }}>
                           + Cobrar Cuota
                         </button>
                       )}
@@ -693,7 +765,7 @@ export default function AdminMobileCompleto() {
                   
                   <div style={{ display: "flex", gap: 6, borderTop: "1px solid #222", paddingTop: 8, flexWrap: "wrap", alignItems: "center" }}>
                     {!p.aprobado && (
-                      <button onClick={() => ejecutarConfirmacionEntregaReal(p)} style={{ background: "linear-gradient(135deg, #ff2d78, #ff0055)", color: "#fff", border: "none", borderRadius: 8, padding: "6px 12px", fontSize: 11, cursor: "pointer", fontWeight: 800 }}>
+                      <button type="button" onClick={() => ejecutarConfirmacionEntregaReal(p)} style={{ background: "linear-gradient(135deg, #ff2d78, #ff0055)", color: "#fff", border: "none", borderRadius: 8, padding: "6px 12px", fontSize: 11, cursor: "pointer", fontWeight: 800 }}>
                         Confirmar Entrega
                       </button>
                     )}
@@ -763,7 +835,7 @@ export default function AdminMobileCompleto() {
                   {subiendoComprobante && <div style={{ color: "#ff2d78", fontSize: 11, marginTop: 4 }}>Subiendo archivo...</div>}
                   {movimientoManual.comprobanteUrl && <div style={{ color: "#10B981", fontSize: 11, marginTop: 4 }}>✔️ Imagen cargada con éxito</div>}
                 </div>
-                <button onClick={ejecutarRegistroContableManual} style={{ ...buttonStyle, background: tipoMovimiento === 'ingreso' ? "linear-gradient(135deg, #10B981, #047857)" : "linear-gradient(135deg, #EF4444, #B91C1C)" }}>
+                <button type="button" onClick={ejecutarRegistroContableManual} style={{ ...buttonStyle, background: tipoMovimiento === 'ingreso' ? "linear-gradient(135deg, #10B981, #047857)" : "linear-gradient(135deg, #EF4444, #B91C1C)" }}>
                   {tipoMovimiento === 'ingreso' ? "Registrar Ingreso Neto" : "Registrar Gasto / Egreso"}
                 </button>
               </div>
@@ -837,8 +909,8 @@ export default function AdminMobileCompleto() {
                 </div>
               ))}
               <div style={{ display: "flex", gap: 10, marginTop: 6 }}>
-                <button onClick={() => setEditando(null)} style={{ ...buttonStyle, background: "#222" }}>Cancelar</button>
-                <button onClick={guardarEdicion} style={buttonStyle}>Guardar</button>
+                <button type="button" onClick={() => setEditando(null)} style={{ ...buttonStyle, background: "#222" }}>Cancelar</button>
+                <button type="button" onClick={guardarEdicion} style={buttonStyle}>Guardar</button>
               </div>
             </div>
           </div>
