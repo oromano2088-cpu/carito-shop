@@ -81,7 +81,7 @@ export default async function ProductoPage({ params }: Props) {
           )}
         </div>
 
-        <a href={"https://wa.me/5491133851488?text=" + encodeURIComponent("Hola CARITO.SHOP! Me interesa: " + p.nombre + " - $" + p.precio.toLocaleString("es-AR") + "\nVi el producto en: https://carito-shop.vercel.app/producto/" + p.id)}
+        <a href={"https://wa.me/5491133851488?text=" + encodeURIComponent("Hola CARITO.SHOP! Me interesa: " + p.nombre + " - $" + p.precio.toLocaleString("es-AR") + "\nVi el producto en: https://carito-shop.vercel.app/?id=" + p.id)}
           target="_blank"
           style={{ display: "block", width: "100%", padding: 16, background: "#25D366", border: "none", borderRadius: 14, color: "#fff", fontWeight: 800, fontSize: 16, textAlign: "center", textDecoration: "none", marginBottom: 10, boxSizing: "border-box" }}>
           💬 Consultar por WhatsApp

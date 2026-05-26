@@ -38,22 +38,18 @@ export default function Home() {
   const [categorias, setCategorias] = useState<string[]>([]);
   const [visor, setVisor] = useState<{ imagenes: string[]; indice: number } | null>(null);
   const [indicesProducto, setIndicesProducto] = useState<{ [id: number]: number }>({});
-  
   const [ofertaActiva, setOfertaActiva] = useState<Producto | null>(null);
   const [tiempoRestante, setTiempoRestante] = useState({ dias: 0, horas: 0, minutes: 0, segundos: 0 });
-
   const [busqueda, setBusqueda] = useState("");
 
   useEffect(() => { init(); }, []);
 
   useEffect(() => {
     if (!ofertaActiva || !ofertaActiva.oferta_hasta) return;
-
     const intervalo = setInterval(() => {
       const ahora = new Date().getTime();
       const limite = new Date(ofertaActiva.oferta_hasta!).getTime();
       const distancia = limite - ahora;
-
       if (distancia < 0) {
         clearInterval(intervalo);
         setOfertaActiva(null);
@@ -66,7 +62,6 @@ export default function Home() {
         });
       }
     }, 1000);
-
     return () => clearInterval(intervalo);
   }, [ofertaActiva]);
 
@@ -74,33 +69,24 @@ export default function Home() {
     const { data } = await supabase.from("productos").select("*").eq("activo", true).gt("stock", 0);
     if (data) {
       setLista(data);
-      
       const ahoraIso = new Date().toISOString();
       const ofertasVigentes = data.filter((p: Producto) => p.precio_oferta && p.oferta_hasta && p.oferta_hasta > ahoraIso);
-      
       const baseCats = ["Todos"];
       if (ofertasVigentes.length > 0) {
         baseCats.push("⚡ Ofertas Flash");
         setOfertaActiva(ofertasVigentes[0]);
       }
-      
       const otrasCats = Array.from(new Set(data.map((p: Producto) => p.categoria).filter(Boolean))) as string[];
       setCategorias([...baseCats, ...otrasCats]);
-
       if (typeof window !== "undefined") {
         const params = new URLSearchParams(window.location.search);
         const productoIdStr = params.get("id");
         if (productoIdStr) {
           const prodId = parseInt(productoIdStr);
-          const encontrado = data.find((p: Producto) => p.id === prodId);
-          if (encontrado) {
-            setTimeout(() => {
-              const elemento = document.getElementById(`producto-${prodId}`);
-              if (elemento) {
-                elemento.scrollIntoView({ behavior: "smooth", block: "center" });
-              }
-            }, 300);
-          }
+          setTimeout(() => {
+            const elemento = document.getElementById(`producto-${prodId}`);
+            if (elemento) elemento.scrollIntoView({ behavior: "smooth", block: "center" });
+          }, 300);
         }
       }
     }
@@ -109,21 +95,18 @@ export default function Home() {
 
   const listaFiltrada = (() => {
     let productosFiltrados = lista;
-
     if (categoriaActiva === "⚡ Ofertas Flash") {
       const ahoraIso = new Date().toISOString();
       productosFiltrados = lista.filter(p => p.precio_oferta && p.oferta_hasta && p.oferta_hasta > ahoraIso);
     } else if (categoriaActiva !== "Todos") {
       productosFiltrados = lista.filter(p => p.categoria === categoriaActiva);
     }
-
     if (busqueda.trim() !== "") {
       const query = busqueda.toLowerCase();
       productosFiltrados = productosFiltrados.filter(
         p => p.nombre.toLowerCase().includes(query) || p.descripcion.toLowerCase().includes(query)
       );
     }
-
     return productosFiltrados;
   })();
 
@@ -142,7 +125,6 @@ export default function Home() {
 
   const quitar = (id: number) => setCarrito(prev => prev.filter(i => i.id !== id));
   const totalU = carrito.reduce((s, i) => s + i.cantidad, 0);
-  
   const totalP = carrito.reduce((s, i) => {
     const precioFinal = i.precio_oferta && i.oferta_hasta && new Date(i.oferta_hasta).getTime() > new Date().getTime() ? i.precio_oferta : i.precio;
     return s + (precioFinal * i.cantidad);
@@ -158,7 +140,7 @@ export default function Home() {
 
   const compartirProducto = (p: Producto) => {
     const pFinal = p.precio_oferta && p.oferta_hasta && new Date(p.oferta_hasta).getTime() > new Date().getTime() ? p.precio_oferta : p.precio;
-    const linkProducto = `https://carito-shop.vercel.app/producto/${p.id}`;
+    const linkProducto = `https://carito-shop.vercel.app/?id=${p.id}`;
     const msg = `🛍️ *CARITO.SHOP*\n━━━━━━━━━━━━━━\n📦 ${p.nombre}\n💰 Precio: $${pFinal.toLocaleString("es-AR")}\n📝 ${p.descripcion || ""}\n\n🔗 Ver y comprar acá:\n${linkProducto}\n━━━━━━━━━━━━━━\n✅ Envíos a todo el país`;
     window.open("https://wa.me/?text=" + encodeURIComponent(msg), "_blank");
   };
@@ -175,10 +157,7 @@ export default function Home() {
       total: totalP,
       estado: "pendiente",
     });
-    
-    // MODIFICADO: Se añade la instrucción del Alias en el mensaje automático que viaja a WhatsApp
     const msg = `Hola CARITO.SHOP! Hice un pedido:\n${productos}\nTotal: $${totalP.toLocaleString("es-AR")}\nNombre: ${form.nombre}\nTel: ${form.telefono}\nDirec: ${form.direccion}\n\n-------------------------\n*DATOS DE TRANSFERENCIA:*\n💰 *Alias Brubank:* carito.shop\n\n*(Por favor, realiza la transferencia y adjuntame el comprobante por este medio)*`;
-    
     window.open("https://wa.me/5491133851488?text=" + encodeURIComponent(msg), "_blank");
     setEnviando(false);
     setPedidoOk(true);
@@ -199,41 +178,20 @@ export default function Home() {
   return (
     <main style={{ minHeight: "100vh", background: "#0a0a0a", fontFamily: "sans-serif" }}>
 
-      {/* BOTON ADMIN SUPERIOR CENTRADO */}
-      <div style={{ 
-        width: "100%", 
-        textAlign: "center", 
-        background: "#050505", 
-        borderBottom: "1px solid #111", 
-        padding: "6px 0" 
-      }}>
-        <a href="/admin" style={{ 
-          display: "inline-block", 
-          padding: "4px 12px", 
-          borderRadius: 6, 
-          border: "1px solid #222", 
-          background: "#0a0a0a", 
-          color: "#ff2d78", 
-          textDecoration: "none", 
-          fontSize: 11, 
-          fontWeight: 700,
-          boxShadow: "0 0 5px rgba(255,45,120,0.1)"
-        }}>
+      <div style={{ width: "100%", textAlign: "center", background: "#050505", borderBottom: "1px solid #111", padding: "6px 0" }}>
+        <a href="/admin" style={{ display: "inline-block", padding: "4px 12px", borderRadius: 6, border: "1px solid #222", background: "#0a0a0a", color: "#ff2d78", textDecoration: "none", fontSize: 11, fontWeight: 700, boxShadow: "0 0 5px rgba(255,45,120,0.1)" }}>
           🔒 Panel Admin
         </a>
       </div>
 
-      {/* VISOR PANTALLA COMPLETA */}
       {visor && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.97)", display: "flex", alignItems: "center", justifyContent: "center" }}
-          onClick={() => setVisor(null)}>
+        <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.97)", display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => setVisor(null)}>
           <button onClick={() => setVisor(null)} style={{ position: "absolute", top: 20, right: 20, background: "rgba(255,255,255,0.1)", border: "none", color: "#fff", fontSize: 28, cursor: "pointer", borderRadius: 50, width: 44, height: 44 }}>✕</button>
           {visor.imagenes.length > 1 && (
             <button onClick={e => { e.stopPropagation(); setVisor(prev => prev ? { ...prev, indice: (prev.indice - 1 + prev.imagenes.length) % prev.imagenes.length } : null); }}
               style={{ position: "absolute", left: 20, background: "rgba(255,255,255,0.1)", border: "none", color: "#fff", fontSize: 28, cursor: "pointer", borderRadius: 50, width: 44, height: 44 }}>‹</button>
           )}
-          <img src={visor.imagenes[visor.indice]} onClick={e => e.stopPropagation()}
-            style={{ maxWidth: "90vw", maxHeight: "90vh", objectFit: "contain", borderRadius: 12 }} />
+          <img src={visor.imagenes[visor.indice]} onClick={e => e.stopPropagation()} style={{ maxWidth: "90vw", maxHeight: "90vh", objectFit: "contain", borderRadius: 12 }} />
           {visor.imagenes.length > 1 && (
             <button onClick={e => { e.stopPropagation(); setVisor(prev => prev ? { ...prev, indice: (prev.indice + 1) % prev.imagenes.length } : null); }}
               style={{ position: "absolute", right: 20, background: "rgba(255,255,255,0.1)", border: "none", color: "#fff", fontSize: 28, cursor: "pointer", borderRadius: 50, width: 44, height: 44 }}>›</button>
@@ -255,19 +213,16 @@ export default function Home() {
         </div>
       )}
 
-      {/* MODIFICADO: CARTEL FLOTANTE CON EL ALIAS VISIBLE EN LA APP */}
       {pedidoOk && (
         <div style={{ position: "fixed", inset: 0, zIndex: 2000, background: "rgba(0,0,0,0.9)", display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div style={{ background: "#111", border: "1px solid #ff2d78", borderRadius: 20, padding: 30, textAlign: "center", maxWidth: 340, width: "90%" }}>
             <div style={{ fontSize: 50, marginBottom: 12 }}>🎉</div>
             <h2 style={{ ...neon, fontSize: 20, fontWeight: 900, marginBottom: 10 }}>Pedido registrado</h2>
-            
             <div style={{ background: "#050505", border: "1px dashed #ff2d78", borderRadius: 12, padding: 14, marginBottom: 20 }}>
               <p style={{ color: "#aaa", fontSize: 13, margin: "0 0 6px 0" }}>Paga mediante transferencia:</p>
               <div style={{ color: "#fff", fontWeight: 800, fontSize: 16, letterSpacing: 1 }}>Alias: <span style={{ color: "#ff2d78" }}>carito.shop</span></div>
               <p style={{ color: "#555", fontSize: 11, margin: "6px 0 0 0" }}>Banco: Brubank</p>
             </div>
-
             <p style={{ color: "#888", fontSize: 13, marginBottom: 20 }}>Serás redirigido a WhatsApp para enviar los detalles y adjuntar tu comprobante.</p>
             <button onClick={() => setPedidoOk(false)} style={{ width: "100%", padding: 13, background: "linear-gradient(135deg, #ff2d78, #ff0055)", border: "none", borderRadius: 12, color: "#fff", fontWeight: 800, cursor: "pointer" }}>
               Entendido
@@ -284,18 +239,15 @@ export default function Home() {
             <p style={{ color: "#555", fontSize: 13, marginBottom: 20 }}>{"Total: $" + totalP.toLocaleString("es-AR")}</p>
             <div style={{ marginBottom: 12 }}>
               <div style={{ color: "#888", fontSize: 12, marginBottom: 6 }}>Nombre completo *</div>
-              <input value={form.nombre} onChange={e => setForm(p => ({ ...p, nombre: e.target.value }))} placeholder="Tu nombre"
-                style={{ width: "100%", padding: 10, borderRadius: 10, border: "1px solid #333", background: "#0a0a0a", color: "#fff", fontSize: 14, boxSizing: "border-box" }} />
+              <input value={form.nombre} onChange={e => setForm(p => ({ ...p, nombre: e.target.value }))} placeholder="Tu nombre" style={{ width: "100%", padding: 10, borderRadius: 10, border: "1px solid #333", background: "#0a0a0a", color: "#fff", fontSize: 14, boxSizing: "border-box" }} />
             </div>
             <div style={{ marginBottom: 12 }}>
               <div style={{ color: "#888", fontSize: 12, marginBottom: 6 }}>Telefono *</div>
-              <input value={form.telefono} onChange={e => setForm(p => ({ ...p, telefono: e.target.value }))} placeholder="Tu telefono"
-                style={{ width: "100%", padding: 10, borderRadius: 10, border: "1px solid #333", background: "#0a0a0a", color: "#fff", fontSize: 14, boxSizing: "border-box" }} />
+              <input value={form.telefono} onChange={e => setForm(p => ({ ...p, telefono: e.target.value }))} placeholder="Tu telefono" style={{ width: "100%", padding: 10, borderRadius: 10, border: "1px solid #333", background: "#0a0a0a", color: "#fff", fontSize: 14, boxSizing: "border-box" }} />
             </div>
             <div style={{ marginBottom: 20 }}>
               <div style={{ color: "#888", fontSize: 12, marginBottom: 6 }}>Direccion de envio</div>
-              <input value={form.direccion} onChange={e => setForm(p => ({ ...p, direccion: e.target.value }))} placeholder="Tu direccion"
-                style={{ width: "100%", padding: 10, borderRadius: 10, border: "1px solid #333", background: "#0a0a0a", color: "#fff", fontSize: 14, boxSizing: "border-box" }} />
+              <input value={form.direccion} onChange={e => setForm(p => ({ ...p, direccion: e.target.value }))} placeholder="Tu direccion" style={{ width: "100%", padding: 10, borderRadius: 10, border: "1px solid #333", background: "#0a0a0a", color: "#fff", fontSize: 14, boxSizing: "border-box" }} />
             </div>
             <button onClick={confirmarPedido} disabled={enviando} style={{ width: "100%", padding: 13, background: "linear-gradient(135deg, #ff2d78, #ff0055)", border: "none", borderRadius: 12, color: "#fff", fontWeight: 800, fontSize: 15, cursor: "pointer", marginBottom: 10 }}>
               {enviando ? "Enviando..." : "Confirmar pedido"}
@@ -369,30 +321,16 @@ export default function Home() {
       </header>
 
       <section style={{ background: "linear-gradient(135deg, #1a0010 0%, #0a0a0a 50%, #1a0010 100%)", textAlign: "center", padding: "50px 20px", borderBottom: "1px solid #ff2d78" }}>
-        <img
-          src="https://acjufczrwyztsmzmljdk.supabase.co/storage/v1/object/public/productos/icono.ico.jpg"
-          alt="CARITO.SHOP"
-          style={{ width: 220, maxWidth: "80%", marginBottom: 16, borderRadius: 16, display: "block", margin: "0 auto 16px auto" }}
-        />
+        <img src="https://acjufczrwyztsmzmljdk.supabase.co/storage/v1/object/public/productos/icono.ico.jpg" alt="CARITO.SHOP"
+          style={{ width: 220, maxWidth: "80%", marginBottom: 16, borderRadius: 16, display: "block", margin: "0 auto 16px auto" }} />
         <p style={{ color: "#ccc", fontSize: 17, marginBottom: 0 }}>Envios a todo el pais - Paga con MercadoPago</p>
       </section>
 
-      {/* BANNER DINÁMICO DE OFERTA FLASH */}
       {ofertaActiva && (
-        <div 
-          onClick={() => setCategoriaActiva("⚡ Ofertas Flash")}
-          style={{ 
-            background: "linear-gradient(90deg, #220011, #450a26, #220011)", 
-            borderBottom: "1px dashed #ff2d78", 
-            padding: "16px 20px", 
-            textAlign: "center",
-            cursor: "pointer"
-          }}
-        >
+        <div onClick={() => setCategoriaActiva("⚡ Ofertas Flash")} style={{ background: "linear-gradient(90deg, #220011, #450a26, #220011)", borderBottom: "1px dashed #ff2d78", padding: "16px 20px", textAlign: "center", cursor: "pointer" }}>
           <div style={{ maxWidth: 600, margin: "0 auto" }}>
             <span style={{ background: "#ff2d78", color: "#fff", padding: "3px 8px", borderRadius: 6, fontSize: 11, fontWeight: 800, verticalAlign: "middle", marginRight: 8 }}>OFERTA FLASH</span>
             <span style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>¡Tocá acá para ver todos los descuentos activos! ⚡</span>
-            
             <div style={{ display: "flex", justifyContent: "center", gap: 12, marginTop: 10 }}>
               {[{ v: tiempoRestante.dias, l: "d" }, { v: tiempoRestante.horas, l: "h" }, { v: tiempoRestante.minutes, l: "m" }, { v: tiempoRestante.segundos, l: "s" }].map((t, idx) => (
                 <div key={idx} style={{ background: "#0a0a0a", border: "1px solid #ff2d78", borderRadius: 8, minWidth: 44, padding: "4px 6px", boxShadow: "0 0 5px rgba(255,45,120,0.3)" }}>
@@ -413,41 +351,17 @@ export default function Home() {
             color: categoriaActiva === cat ? "#fff" : "#888",
             fontWeight: 700, fontSize: 13, whiteSpace: "nowrap", flexShrink: 0,
             boxShadow: categoriaActiva === cat ? "0 0 10px rgba(255,45,120,0.5)" : "none",
-          }}>
-            {cat}
-          </button>
+          }}>{cat}</button>
         ))}
       </div>
 
-      {/* BUSCADOR NEÓN */}
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "15px 20px 0" }}>
         <div style={{ position: "relative", width: "100%" }}>
           <span style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", fontSize: 16, color: "#ff2d78" }}>🔍</span>
-          <input 
-            type="text"
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            placeholder="¿Qué estás buscando hoy?..."
-            style={{ 
-              width: "100%", 
-              padding: "12px 12px 12px 42px", 
-              borderRadius: 14, 
-              border: "1px solid #ff2d78", 
-              background: "#111", 
-              color: "#fff", 
-              fontSize: 14, 
-              boxSizing: "border-box",
-              outline: "none",
-              boxShadow: "0 0 8px rgba(255,45,120,0.2)"
-            }}
-          />
+          <input type="text" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="¿Qué estás buscando hoy?..."
+            style={{ width: "100%", padding: "12px 12px 12px 42px", borderRadius: 14, border: "1px solid #ff2d78", background: "#111", color: "#fff", fontSize: 14, boxSizing: "border-box", outline: "none", boxShadow: "0 0 8px rgba(255,45,120,0.2)" }} />
           {busqueda !== "" && (
-            <button 
-              onClick={() => setBusqueda("")}
-              style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: "#555", fontSize: 14, cursor: "pointer" }}
-            >
-              ✕
-            </button>
+            <button onClick={() => setBusqueda("")} style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: "#555", fontSize: 14, cursor: "pointer" }}>✕</button>
           )}
         </div>
       </div>
@@ -468,45 +382,31 @@ export default function Home() {
             {listaFiltrada.map(p => {
               const imagenes = getImagenes(p);
               const indice = indicesProducto[p.id] || 0;
-              
               const esOfertaVigente = p.precio_oferta && p.oferta_hasta && new Date(p.oferta_hasta).getTime() > new Date().getTime();
               const precioMostrar = esOfertaVigente ? p.precio_oferta! : p.precio;
-
               return (
                 <div id={`producto-${p.id}`} key={p.id} style={{ background: "#111", border: "1px solid #ff2d78", borderRadius: 20, overflow: "hidden", scrollMarginTop: "90px" }}>
-                  {/* GALERIA DE IMAGENES */}
                   <div style={{ height: 220, position: "relative", background: "#0a0a0a", borderBottom: "1px solid #ff2d78" }}>
                     {imagenes.length > 0 ? (
                       <>
-                        <img
-                          src={imagenes[indice]}
-                          alt={p.nombre}
-                          onClick={() => setVisor({ imagenes, indice })}
-                          style={{ width: "100%", height: "100%", objectFit: "contain", cursor: "zoom-in" }}
-                        />
+                        <img src={imagenes[indice]} alt={p.nombre} onClick={() => setVisor({ imagenes, indice })} style={{ width: "100%", height: "100%", objectFit: "contain", cursor: "zoom-in" }} />
                         {imagenes.length > 1 && (
                           <>
-                            <button onClick={() => cambiarIndice(p.id, -1, imagenes.length)}
-                              style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", background: "rgba(0,0,0,0.6)", border: "none", color: "#fff", fontSize: 20, cursor: "pointer", borderRadius: 50, width: 32, height: 32 }}>‹</button>
-                            <button onClick={() => cambiarIndice(p.id, 1, imagenes.length)}
-                              style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "rgba(0,0,0,0.6)", border: "none", color: "#fff", fontSize: 20, cursor: "pointer", borderRadius: 50, width: 32, height: 32 }}>›</button>
+                            <button onClick={() => cambiarIndice(p.id, -1, imagenes.length)} style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", background: "rgba(0,0,0,0.6)", border: "none", color: "#fff", fontSize: 20, cursor: "pointer", borderRadius: 50, width: 32, height: 32 }}>‹</button>
+                            <button onClick={() => cambiarIndice(p.id, 1, imagenes.length)} style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "rgba(0,0,0,0.6)", border: "none", color: "#fff", fontSize: 20, cursor: "pointer", borderRadius: 50, width: 32, height: 32 }}>›</button>
                             <div style={{ position: "absolute", bottom: 8, left: "50%", transform: "translateX(-50%)", display: "flex", gap: 5 }}>
                               {imagenes.map((_, i) => (
-                                <div key={i} onClick={() => setIndicesProducto(prev => ({ ...prev, [p.id]: i }))}
-                                  style={{ width: 7, height: 7, borderRadius: 50, background: i === indice ? "#ff2d78" : "#555", cursor: "pointer" }} />
+                                <div key={i} onClick={() => setIndicesProducto(prev => ({ ...prev, [p.id]: i }))} style={{ width: 7, height: 7, borderRadius: 50, background: i === indice ? "#ff2d78" : "#555", cursor: "pointer" }} />
                               ))}
                             </div>
                           </>
                         )}
-                        <div onClick={() => setVisor({ imagenes, indice })}
-                          style={{ position: "absolute", top: 8, right: 8, background: "rgba(0,0,0,0.6)", borderRadius: 8, padding: "4px 8px", cursor: "pointer" }}>
+                        <div onClick={() => setVisor({ imagenes, indice })} style={{ position: "absolute", top: 8, right: 8, background: "rgba(0,0,0,0.6)", borderRadius: 8, padding: "4px 8px", cursor: "pointer" }}>
                           <span style={{ color: "#fff", fontSize: 14 }}>🔍</span>
                         </div>
                       </>
                     ) : (
-                      <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 70 }}>
-                        {p.emoji}
-                      </div>
+                      <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 70 }}>{p.emoji}</div>
                     )}
                     {p.stock <= 3 && p.stock > 0 && (
                       <div style={{ position: "absolute", top: 8, left: 8, background: "#EF4444", color: "#fff", fontSize: 11, fontWeight: 700, padding: "4px 8px", borderRadius: 8 }}>
@@ -518,61 +418,32 @@ export default function Home() {
                         ⚡ OFERTA
                       </div>
                     )}
-
-                    {/* ÍCONO DE COMPARTIR NEÓN */}
-                    <div 
-                      onClick={(e) => { e.stopPropagation(); compartirProducto(p); }}
-                      style={{ 
-                        position: "absolute", 
-                        bottom: 8, 
-                        right: 8, 
-                        background: "rgba(10,10,10,0.9)", 
-                        border: "1px solid #ff2d78", 
-                        borderRadius: "50%", 
-                        width: 38, 
-                        height: 38, 
-                        display: "flex", 
-                        alignItems: "center", 
-                        justifyContent: "center", 
-                        cursor: "pointer", 
-                        boxShadow: "0 0 15px rgba(255,45,120,0.5)",
-                        transition: "all 0.3s ease",
-                        zIndex: 10
-                      }}
-                      title="Compartir producto"
-                    >
+                    <div onClick={(e) => { e.stopPropagation(); compartirProducto(p); }} style={{ position: "absolute", bottom: 8, right: 8, background: "rgba(10,10,10,0.9)", border: "1px solid #ff2d78", borderRadius: "50%", width: 38, height: 38, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", boxShadow: "0 0 15px rgba(255,45,120,0.5)", zIndex: 10 }}>
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M18 16.08C17.24 16.08 16.56 16.38 16.04 16.85L8.91 12.7C8.96 12.47 9 12.24 9 12C9 11.76 8.96 11.53 8.91 11.3L15.96 7.19C16.5 7.69 17.21 8 18 8C19.66 8 21 6.66 21 5C21 3.34 19.66 2 18 2C16.34 2 15 3.34 15 5C15 5.24 15.04 5.47 15.09 5.7L8.04 9.81C7.5 9.31 6.79 9 6 9C4.34 9 3 10.34 3 12C3 13.66 4.34 15 6 15C6.79 15 7.5 14.69 8.04 14.19L15.16 18.35C15.11 18.56 15.08 18.78 15.08 19C15.08 20.61 16.39 21.92 18 21.92C19.61 21.92 20.92 20.61 20.92 19C20.92 17.39 19.61 16.08 18 16.08Z" fill="#ff2d78" style={{ filter: "drop-shadow(0 0 3px #ff2d78)" }}/>
                       </svg>
                     </div>
                   </div>
-
                   <div style={{ padding: 18 }}>
                     <div style={{ fontSize: 11, color: "#ff2d78", fontWeight: 600, marginBottom: 4 }}>{p.categoria}</div>
                     <h4 style={{ color: "#fff", fontWeight: 800, fontSize: 16, marginBottom: 6 }}>{p.nombre}</h4>
                     <p style={{ color: "#888", fontSize: 13, marginBottom: 12 }}>{p.descripcion}</p>
-                    
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
                       <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-                        <span style={{ fontSize: 22, fontWeight: 900, color: "#ff2d78" }}>
-                          {"$" + precioMostrar.toLocaleString("es-AR")}
-                        </span>
+                        <span style={{ fontSize: 22, fontWeight: 900, color: "#ff2d78" }}>{"$" + precioMostrar.toLocaleString("es-AR")}</span>
                         {esOfertaVigente && (
-                          <span style={{ fontSize: 13, color: "#555", textDecoration: "line-through" }}>
-                            {"$" + p.precio.toLocaleString("es-AR")}
-                          </span>
+                          <span style={{ fontSize: 13, color: "#555", textDecoration: "line-through" }}>{"$" + p.precio.toLocaleString("es-AR")}</span>
                         )}
                       </div>
                       <span style={{ fontSize: 12, color: "#555" }}>{"Stock: " + p.stock}</span>
                     </div>
-
                     <button onClick={() => agregar(p)} style={{ width: "100%", padding: 12, background: "linear-gradient(135deg, #ff2d78, #ff0055)", border: "none", borderRadius: 12, color: "#fff", fontWeight: 800, cursor: "pointer", marginBottom: 8 }}>
                       Agregar al carrito
                     </button>
                     <button onClick={() => {
                       const msg = "Hola CARITO.SHOP! Me interesa: " + p.nombre + " - $" + precioMostrar.toLocaleString("es-AR") + "\n\n*Alias de Pago (Brubank):* carito.shop\n*(Por favor, enviame el comprobante por acá)*";
                       window.open("https://wa.me/5491133851488?text=" + encodeURIComponent(msg), "_blank");
-                    }} style={{ width: "100%", padding: 10, background: "transparent", border: "1px solid #25D366", borderRadius: 12, color: "#25D366", fontWeight: 700, cursor: "pointer", marginBottom: 8 }}>
+                    }} style={{ width: "100%", padding: 10, background: "transparent", border: "1px solid #25D366", borderRadius: 12, color: "#25D366", fontWeight: 700, cursor: "pointer" }}>
                       💬 Consultar por WhatsApp
                     </button>
                   </div>
