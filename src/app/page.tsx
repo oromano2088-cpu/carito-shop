@@ -158,8 +158,8 @@ export default function Home() {
 
   const compartirProducto = (p: Producto) => {
     const pFinal = p.precio_oferta && p.oferta_hasta && new Date(p.oferta_hasta).getTime() > new Date().getTime() ? p.precio_oferta : p.precio;
-    const linkProducto = `https://carito-shop.vercel.app/?id=${p.id}`;
-    const msg = `Mira este producto de CARITO.SHOP!\n\n${p.nombre}\n$${pFinal.toLocaleString("es-AR")}\n\n${p.descripcion}\n\nVer producto directo en la app: ${linkProducto}`;
+    const linkProducto = `https://carito-shop.vercel.app/producto/${p.id}`;
+    const msg = `🛍️ *CARITO.SHOP*\n━━━━━━━━━━━━━━\n📦 ${p.nombre}\n💰 Precio: $${pFinal.toLocaleString("es-AR")}\n📝 ${p.descripcion || ""}\n\n🔗 Ver y comprar acá:\n${linkProducto}\n━━━━━━━━━━━━━━\n✅ Envíos a todo el país`;
     window.open("https://wa.me/?text=" + encodeURIComponent(msg), "_blank");
   };
 
