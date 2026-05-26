@@ -15,7 +15,8 @@ type Producto = {
   imagen2: string; 
   imagen3: string; 
   categoria: string; 
-  stock: number; 
+  stock: number;
+  creado_en: string | null; 
 };
 type Item = Producto & { cantidad: number };
 const neon = { color: "#ff2d78", textShadow: "0 0 10px #ff2d78" };
@@ -66,16 +67,22 @@ export default function Home() {
   }, [ofertaActiva]);
 
   const init = async () => {
-    const { data } = await supabase.from("productos").select("*").eq("activo", true).gt("stock", 0);
+    const { data } = await supabase.from("productos").select("*").eq("activo", true).gt("stock", 0).order("creado_en", { ascending: false });
     if (data) {
       setLista(data);
       const ahoraIso = new Date().toISOString();
       const ofertasVigentes = data.filter((p: Producto) => p.precio_oferta && p.oferta_hasta && p.oferta_hasta > ahoraIso);
       const baseCats = ["Todos"];
-      if (ofertasVigentes.length > 0) {
-        baseCats.push("⚡ Ofertas Flash");
-        setOfertaActiva(ofertasVigentes[0]);
-      }
+
+const hace5dias = new Date();
+hace5dias.setDate(hace5dias.getDate() - 5);
+const novedades = data.filter((p: Producto) => p.creado_en && new Date(p.creado_en) > hace5dias);
+if (novedades.length > 0) baseCats.push("🆕 Novedades");
+
+if (ofertasVigentes.length > 0) {
+  baseCats.push("⚡ Ofertas Flash");
+  setOfertaActiva(ofertasVigentes[0]);
+}
       const otrasCats = Array.from(new Set(data.map((p: Producto) => p.categoria).filter(Boolean))) as string[];
       setCategorias([...baseCats, ...otrasCats]);
       if (typeof window !== "undefined") {
@@ -95,7 +102,11 @@ export default function Home() {
 
   const listaFiltrada = (() => {
     let productosFiltrados = lista;
-    if (categoriaActiva === "⚡ Ofertas Flash") {
+    if (categoriaActiva === "🆕 Novedades") {
+  const hace5dias = new Date();
+  hace5dias.setDate(hace5dias.getDate() - 5);
+  productosFiltrados = lista.filter(p => p.creado_en && new Date(p.creado_en) > hace5dias);
+} else if (categoriaActiva === "⚡ Ofertas Flash") {
       const ahoraIso = new Date().toISOString();
       productosFiltrados = lista.filter(p => p.precio_oferta && p.oferta_hasta && p.oferta_hasta > ahoraIso);
     } else if (categoriaActiva !== "Todos") {
