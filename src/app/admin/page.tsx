@@ -367,6 +367,12 @@ export default function AdminMobileCompleto() {
   });
   const totalHistorialFiltrado = historialFiltrado.reduce((acc, h) => h.esIngreso ? acc + h.monto : acc - h.monto, 0);
 
+  const deudores = pedidos.filter(p => {
+    const deuda = p.total - (p.anticipo || 0);
+    return deuda > 0 && !(p.aprobado && p.estado_pago === "pagado" && p.estado_entrega === "entregado");
+  });
+  const totalPorCobrar = deudores.reduce((acc, p) => acc + (p.total - (p.anticipo || 0)), 0);
+
   if (!logueado) return (
     <main style={{ minHeight: "100vh", background: "#0a0a0a", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "sans-serif", padding: 16 }}>
       <div style={{ background: "#111", border: "1px solid #ff2d78", borderRadius: 20, padding: 30, width: "100%", maxWidth: 320, textAlign: "center" }}>
@@ -642,6 +648,37 @@ export default function AdminMobileCompleto() {
 
         {pestana === "caja" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+            {/* SALDOS POR COBRAR */}
+            <div style={{ background: "#111", border: "1px solid #F59E0B", borderRadius: 16, padding: 16 }}>
+              <h3 style={{ color: "#F59E0B", margin: "0 0 14px 0", fontSize: 15 }}>💳 Saldos por Cobrar</h3>
+              {deudores.length === 0 && (
+                <div style={{ color: "#444", fontSize: 12, textAlign: "center", padding: 10 }}>No hay deudas pendientes 🎉</div>
+              )}
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {deudores.map(p => {
+                  const deuda = p.total - (p.anticipo || 0);
+                  return (
+                    <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", background: "#0a0a0a", borderRadius: 10, border: "1px solid #2a1f00" }}>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>{p.cliente_nombre}</div>
+                        <div style={{ fontSize: 11, color: "#555", marginTop: 2 }}>{p.productos}</div>
+                        <div style={{ fontSize: 10, color: "#444", marginTop: 2 }}>{p.creado_en?.substring(0, 10)}</div>
+                      </div>
+                      <span style={{ fontSize: 15, fontWeight: 800, color: "#F59E0B", flexShrink: 0, marginLeft: 8 }}>{"$" + deuda.toLocaleString("es-AR")}</span>
+                    </div>
+                  );
+                })}
+              </div>
+              {deudores.length > 0 && (
+                <div style={{ borderTop: "1px solid #2a1f00", paddingTop: 10, marginTop: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: 13, color: "#888" }}>TOTAL POR COBRAR:</span>
+                  <span style={{ fontSize: 18, fontWeight: 900, color: "#F59E0B" }}>{"$" + totalPorCobrar.toLocaleString("es-AR")}</span>
+                </div>
+              )}
+            </div>
+
+            {/* SALDOS DISPONIBLES */}
             <div style={{ background: "#111", border: "1px solid #ff2d78", borderRadius: 16, padding: 16 }}>
               <h3 style={{ ...neon, margin: "0 0 14px 0", fontSize: 15 }}>Saldos Disponibles</h3>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -662,6 +699,7 @@ export default function AdminMobileCompleto() {
               </div>
             </div>
 
+            {/* REGISTRAR MOVIMIENTO */}
             <div style={{ background: "#111", border: "1px solid #333", borderRadius: 16, padding: 16 }}>
               <h3 style={{ color: "#fff", margin: "0 0 14px 0", fontSize: 15 }}>Registrar Movimiento</h3>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 14 }}>
@@ -716,6 +754,7 @@ export default function AdminMobileCompleto() {
               </div>
             </div>
 
+            {/* HISTORIAL */}
             <div style={{ background: "#111", border: "1px solid #222", borderRadius: 16, padding: 16 }}>
               <h3 style={{ color: "#fff", margin: "0 0 12px 0", fontSize: 15 }}>📋 Historial de Movimientos</h3>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
@@ -761,6 +800,7 @@ export default function AdminMobileCompleto() {
                 ))}
               </div>
             </div>
+
           </div>
         )}
 
