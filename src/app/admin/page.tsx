@@ -290,9 +290,10 @@ export default function AdminMobileCompleto() {
     const cantidad = parseInt(ventaManual.cantidad) || 1;
     const precioBase = (prodSel.precio_oferta || prodSel.precio) * cantidad;
     let total = precioBase, esFinanciado = false, cuotasTotales = 1;
-    let cuotasPagadas = 1, montoCuota = 0, anticipo = precioBase;
+    let cuotasPagadas = 1, montoCuota = 0, anticipo = 0;
     let cuentaAsignada = ventaManual.tipoPago === "Cuotas" ? "Efectivo" : ventaManual.tipoPago;
-    let estadoPago = "pagado";
+    let estadoPago = "pendiente_pago";
+
     if (ventaManual.tipoPago === "Cuotas") {
       esFinanciado = true; cuotasTotales = 3; cuotasPagadas = 1;
       const c1 = precioBase / 3;
@@ -301,12 +302,23 @@ export default function AdminMobileCompleto() {
       total = anticipo + montoCuota * 2;
       estadoPago = "pendiente_pago";
     } else {
-      const entregado = parseInt(ventaManual.montoEntregado);
-      if (!isNaN(entregado)) {
-        anticipo = entregado;
-        if (entregado < precioBase) estadoPago = "pendiente_pago";
+      if (ventaManual.montoEntregado === "" || ventaManual.montoEntregado === "0") {
+        anticipo = 0;
+        estadoPago = "pendiente_pago";
+      } else {
+        const entregado = parseInt(ventaManual.montoEntregado);
+        if (!isNaN(entregado)) {
+          anticipo = entregado;
+          if (entregado >= precioBase) {
+            anticipo = precioBase;
+            estadoPago = "pagado";
+          } else {
+            estadoPago = "pendiente_pago";
+          }
+        }
       }
     }
+
     await supabase.from("pedidos").insert({
       cliente_nombre: ventaManual.cliente, cliente_telefono: ventaManual.telefono,
       cliente_direccion: ventaManual.direccion, productos: prodSel.nombre + " x" + cantidad,
@@ -493,8 +505,10 @@ export default function AdminMobileCompleto() {
               {ventaManual.tipoPago !== "Cuotas" && (
                 <div>
                   <div style={{ color: "#ff2d78", fontSize: 11, fontWeight: 700, marginBottom: 4 }}>Monto Entregado / Seña Recibida ($)</div>
-                  <input value={ventaManual.montoEntregado} onChange={e => setVentaManual(p => ({ ...p, montoEntregado: e.target.value }))} placeholder="Dejar vacío si pagó el total" type="number" style={{ ...inputStyle, border: "1px solid #ff2d78" }} />
-                  <span style={{ color: "#555", fontSize: 10, display: "block", marginTop: 4 }}>Si el cliente deja una seña menor al valor total, la orden pasará a estado "Debe" automáticamente.</span>
+                  <input value={ventaManual.montoEntregado} onChange={e => setVentaManual(p => ({ ...p, montoEntregado: e.target.value }))} placeholder="Dejar vacío si NO pagó nada aún" type="number" style={{ ...inputStyle, border: "1px solid #ff2d78" }} />
+                  <span style={{ color: "#555", fontSize: 10, display: "block", marginTop: 4 }}>
+                    Vacío = debe el total. Monto parcial = queda como deuda la diferencia. Monto total = pagado completo.
+                  </span>
                 </div>
               )}
               <button type="button" onClick={ventaManual.productoId === "" ? () => mostrarToast("Elegí un producto") : ejecutarCargaVentaManual} style={buttonStyle}>Registrar Venta</button>
@@ -649,7 +663,6 @@ export default function AdminMobileCompleto() {
         {pestana === "caja" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
-            {/* SALDOS POR COBRAR */}
             <div style={{ background: "#111", border: "1px solid #F59E0B", borderRadius: 16, padding: 16 }}>
               <h3 style={{ color: "#F59E0B", margin: "0 0 14px 0", fontSize: 15 }}>💳 Saldos por Cobrar</h3>
               {deudores.length === 0 && (
@@ -678,7 +691,6 @@ export default function AdminMobileCompleto() {
               )}
             </div>
 
-            {/* SALDOS DISPONIBLES */}
             <div style={{ background: "#111", border: "1px solid #ff2d78", borderRadius: 16, padding: 16 }}>
               <h3 style={{ ...neon, margin: "0 0 14px 0", fontSize: 15 }}>Saldos Disponibles</h3>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -699,7 +711,6 @@ export default function AdminMobileCompleto() {
               </div>
             </div>
 
-            {/* REGISTRAR MOVIMIENTO */}
             <div style={{ background: "#111", border: "1px solid #333", borderRadius: 16, padding: 16 }}>
               <h3 style={{ color: "#fff", margin: "0 0 14px 0", fontSize: 15 }}>Registrar Movimiento</h3>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 14 }}>
@@ -754,7 +765,6 @@ export default function AdminMobileCompleto() {
               </div>
             </div>
 
-            {/* HISTORIAL */}
             <div style={{ background: "#111", border: "1px solid #222", borderRadius: 16, padding: 16 }}>
               <h3 style={{ color: "#fff", margin: "0 0 12px 0", fontSize: 15 }}>📋 Historial de Movimientos</h3>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
