@@ -30,6 +30,9 @@ type PagoParcial = {
   id: number; pedido_id: number; cliente_nombre: string;
   monto: number; comprobante_url?: string; cuenta: string; creado_en: string;
 };
+type ItemCarrito = {
+  productoId: number; nombre: string; precio: number; cantidad: number;
+};
 
 const CLAVE = "carito2026";
 const neon = { color: "#ff2d78", textShadow: "0 0 10px #ff2d78" };
@@ -88,11 +91,15 @@ export default function AdminMobileCompleto() {
   const [subiendo, setSubiendo] = useState(false);
   const [coincidenciasAlta, setCoincidenciasAlta] = useState<Producto[]>([]);
 
-  const [ventaManual, setVentaManual] = useState({
-    cliente: "", telefono: "", direccion: "", productoId: "",
-    tipoPago: "Efectivo", esDropshipping: false, montoEntregado: "", cantidad: "1",
-  });
+  // CARRITO DE VENTA MANUAL
+  const [ventaCliente, setVentaCliente] = useState({ nombre: "", telefono: "", direccion: "" });
+  const [carritoVenta, setCarritoVenta] = useState<ItemCarrito[]>([]);
   const [categoriaFiltroVenta, setCategoriaFiltroVenta] = useState("");
+  const [productoSeleccionado, setProductoSeleccionado] = useState("");
+  const [cantidadSeleccionada, setCantidadSeleccionada] = useState("1");
+  const [tipoPagoVenta, setTipoPagoVenta] = useState("Efectivo");
+  const [montoEntregadoVenta, setMontoEntregadoVenta] = useState("");
+  const [esDropshippingVenta, setEsDropshippingVenta] = useState(false);
 
   const [tipoMovimiento, setTipoMovimiento] = useState<"ingreso" | "egreso">("egreso");
   const [movimientoManual, setMovimientoManual] = useState({
@@ -106,7 +113,6 @@ export default function AdminMobileCompleto() {
   const [nuevoSaldoDeuda, setNuevoSaldoDeuda] = useState("");
   const [vistaProductoCompleto, setVistaProductoCompleto] = useState<Producto | null>(null);
 
-  // PAGO PARCIAL
   const [pagoParcialModal, setPagoParcialModal] = useState<Pedido | null>(null);
   const [montoPagoParcial, setMontoPagoParcial] = useState("");
   const [cuentaPagoParcial, setCuentaPagoParcial] = useState("Efectivo");
@@ -172,13 +178,10 @@ export default function AdminMobileCompleto() {
       else if (tag === "brubank") totalBrubank += pp.monto;
       else if (tag === "efectivo") totalEfectivo += pp.monto;
       pool.push({
-        fecha: pp.creado_en,
-        entidad: pp.cliente_nombre,
-        concepto: "Pago parcial",
+        fecha: pp.creado_en, entidad: pp.cliente_nombre, concepto: "Pago parcial",
         monto: pp.monto,
         cuenta: tag === "alias" ? "📱 Alias" : tag === "brubank" ? "👩 Brubank" : "💵 Efectivo",
-        esIngreso: true,
-        comprobanteUrl: pp.comprobante_url,
+        esIngreso: true, comprobanteUrl: pp.comprobante_url,
       });
     });
 
@@ -266,6 +269,83 @@ export default function AdminMobileCompleto() {
     setNuevaCatNombre(""); setCreandoNuevaCat(false); cargarTodo();
   };
 
+  const agregarAlCarritoVenta = () => {
+    if (!productoSeleccionado) { mostrarToast("Elegí un producto"); return; }
+    const prod = productos.find(p => p.id === parseInt(productoSeleccionado));
+    if (!prod) return;
+    const cantidad = parseInt(cantidadSeleccionada) || 1;
+    const precio = prod.precio_oferta || prod.precio;
+    const existe = carritoVenta.find(i => i.productoId === prod.id);
+    if (existe) {
+      setCarritoVenta(prev => prev.map(i => i.productoId === prod.id ? { ...i, cantidad: i.cantidad + cantidad } : i));
+    } else {
+      setCarritoVenta(prev => [...prev, { productoId: prod.id, nombre: prod.nombre, precio, cantidad }]);
+    }
+    setProductoSeleccionado("");
+    setCantidadSeleccionada("1");
+    mostrarToast("Producto agregado al pedido");
+  };
+
+  const quitarDelCarritoVenta = (productoId: number) => {
+    setCarritoVenta(prev => prev.filter(i => i.productoId !== productoId));
+  };
+
+  const totalCarritoVenta = carritoVenta.reduce((acc, i) => acc + i.precio * i.cantidad, 0);
+
+  const ejecutarCargaVentaManual = async () => {
+    if (!ventaCliente.nombre) { mostrarToast("Ingresá el nombre del cliente"); return; }
+    if (carritoVenta.length === 0) { mostrarToast("Agregá al menos un producto"); return; }
+
+    const productosTexto = carritoVenta.map(i => i.nombre + " x" + i.cantidad).join(", ");
+    const total = totalCarritoVenta;
+    let anticipo = 0;
+    let estadoPago = "pendiente_pago";
+    let esFinanciado = false;
+    let cuotasTotales = 1, cuotasPagadas = 1, montoCuota = 0;
+    let cuentaAsignada = tipoPagoVenta === "Cuotas" ? "Efectivo" : tipoPagoVenta;
+
+    if (tipoPagoVenta === "Cuotas") {
+      esFinanciado = true; cuotasTotales = 3; cuotasPagadas = 1;
+      const c1 = total / 3;
+      anticipo = Math.ceil(c1 / 1000) * 1000;
+      montoCuota = Math.ceil((c1 * 1.10) / 1000) * 1000;
+      estadoPago = "pendiente_pago";
+    } else {
+      if (montoEntregadoVenta === "" || montoEntregadoVenta === "0") {
+        anticipo = 0;
+        estadoPago = "pendiente_pago";
+      } else {
+        const entregado = parseInt(montoEntregadoVenta);
+        if (!isNaN(entregado)) {
+          anticipo = entregado;
+          if (entregado >= total) { anticipo = total; estadoPago = "pagado"; }
+          else estadoPago = "pendiente_pago";
+        }
+      }
+    }
+
+    await supabase.from("pedidos").insert({
+      cliente_nombre: ventaCliente.nombre,
+      cliente_telefono: ventaCliente.telefono,
+      cliente_direccion: ventaCliente.direccion,
+      productos: productosTexto,
+      total, estado_pago: estadoPago, estado_entrega: "pendiente_entrega",
+      aprobado: false, es_financiado: esFinanciado, cuotas_totales: cuotasTotales,
+      cuotas_pagadas: cuotasPagadas, monto_cuota: montoCuota, anticipo,
+      cuenta_ingreso: cuentaAsignada, es_dropshipping: esDropshippingVenta,
+    });
+
+    mostrarToast("Venta registrada");
+    setVentaCliente({ nombre: "", telefono: "", direccion: "" });
+    setCarritoVenta([]);
+    setTipoPagoVenta("Efectivo");
+    setMontoEntregadoVenta("");
+    setEsDropshippingVenta(false);
+    setCategoriaFiltroVenta("");
+    setPestana("ventas");
+    cargarTodo();
+  };
+
   const cambiarEstadoPago = async (id: number, nuevoEstado: string) => {
     const updates: Record<string, unknown> = { estado_pago: nuevoEstado };
     if (nuevoEstado === "pagado") {
@@ -328,75 +408,15 @@ export default function AdminMobileCompleto() {
     if (isNaN(monto) || monto <= 0) { mostrarToast("Monto inválido"); return; }
     const deudaActual = pagoParcialModal.total - (pagoParcialModal.anticipo || 0);
     if (monto > deudaActual) { mostrarToast("El monto supera la deuda"); return; }
-
     const nuevoAnticipo = (pagoParcialModal.anticipo || 0) + monto;
     const nuevoEstado = nuevoAnticipo >= pagoParcialModal.total ? "pagado" : "pendiente_pago";
-
-    await supabase.from("pedidos").update({
-      anticipo: nuevoAnticipo,
-      estado_pago: nuevoEstado,
-    }).eq("id", pagoParcialModal.id);
-
+    await supabase.from("pedidos").update({ anticipo: nuevoAnticipo, estado_pago: nuevoEstado }).eq("id", pagoParcialModal.id);
     await supabase.from("pagos_parciales").insert({
-      pedido_id: pagoParcialModal.id,
-      cliente_nombre: pagoParcialModal.cliente_nombre,
-      monto,
-      cuenta: cuentaPagoParcial,
-      comprobante_url: comprobantePagoParcial || null,
+      pedido_id: pagoParcialModal.id, cliente_nombre: pagoParcialModal.cliente_nombre,
+      monto, cuenta: cuentaPagoParcial, comprobante_url: comprobantePagoParcial || null,
     });
-
     mostrarToast("Pago registrado ✓");
-    setPagoParcialModal(null);
-    setMontoPagoParcial("");
-    setCuentaPagoParcial("Efectivo");
-    setComprobantePagoParcial("");
-    cargarTodo();
-  };
-
-  const ejecutarCargaVentaManual = async () => {
-    if (!ventaManual.cliente || !ventaManual.productoId) { mostrarToast("Asigná cliente y producto"); return; }
-    const prodSel = productos.find(p => p.id === parseInt(ventaManual.productoId));
-    if (!prodSel) return;
-    const cantidad = parseInt(ventaManual.cantidad) || 1;
-    const precioBase = (prodSel.precio_oferta || prodSel.precio) * cantidad;
-    let total = precioBase, esFinanciado = false, cuotasTotales = 1;
-    let cuotasPagadas = 1, montoCuota = 0, anticipo = 0;
-    let cuentaAsignada = ventaManual.tipoPago === "Cuotas" ? "Efectivo" : ventaManual.tipoPago;
-    let estadoPago = "pendiente_pago";
-
-    if (ventaManual.tipoPago === "Cuotas") {
-      esFinanciado = true; cuotasTotales = 3; cuotasPagadas = 1;
-      const c1 = precioBase / 3;
-      anticipo = Math.ceil(c1 / 1000) * 1000;
-      montoCuota = Math.ceil((c1 * 1.10) / 1000) * 1000;
-      total = anticipo + montoCuota * 2;
-      estadoPago = "pendiente_pago";
-    } else {
-      if (ventaManual.montoEntregado === "" || ventaManual.montoEntregado === "0") {
-        anticipo = 0;
-        estadoPago = "pendiente_pago";
-      } else {
-        const entregado = parseInt(ventaManual.montoEntregado);
-        if (!isNaN(entregado)) {
-          anticipo = entregado;
-          if (entregado >= precioBase) { anticipo = precioBase; estadoPago = "pagado"; }
-          else estadoPago = "pendiente_pago";
-        }
-      }
-    }
-
-    await supabase.from("pedidos").insert({
-      cliente_nombre: ventaManual.cliente, cliente_telefono: ventaManual.telefono,
-      cliente_direccion: ventaManual.direccion, productos: prodSel.nombre + " x" + cantidad,
-      total, estado_pago: estadoPago, estado_entrega: "pendiente_entrega",
-      aprobado: false, es_financiado: esFinanciado, cuotas_totales: cuotasTotales,
-      cuotas_pagadas: cuotasPagadas, monto_cuota: montoCuota, anticipo,
-      cuenta_ingreso: cuentaAsignada, es_dropshipping: ventaManual.esDropshipping,
-    });
-    mostrarToast("Venta registrada");
-    setVentaManual({ cliente: "", telefono: "", direccion: "", productoId: "", tipoPago: "Efectivo", esDropshipping: false, montoEntregado: "", cantidad: "1" });
-    setCategoriaFiltroVenta("");
-    setPestana("ventas");
+    setPagoParcialModal(null); setMontoPagoParcial(""); setCuentaPagoParcial("Efectivo"); setComprobantePagoParcial("");
     cargarTodo();
   };
 
@@ -479,15 +499,11 @@ export default function AdminMobileCompleto() {
           <div style={{ position: "relative", background: "#111", border: "2px solid #10B981", borderRadius: 20, padding: 24, width: "100%", maxWidth: 380 }}>
             <h3 style={{ color: "#10B981", fontWeight: 900, fontSize: 17, marginBottom: 6 }}>💰 Registrar Pago</h3>
             <p style={{ color: "#aaa", fontSize: 13, marginBottom: 4 }}>{pagoParcialModal.cliente_nombre}</p>
-            <p style={{ color: "#F59E0B", fontSize: 13, marginBottom: 16 }}>
-              Deuda actual: {fmt(pagoParcialModal.total - (pagoParcialModal.anticipo || 0))}
-            </p>
+            <p style={{ color: "#F59E0B", fontSize: 13, marginBottom: 16 }}>Deuda actual: {fmt(pagoParcialModal.total - (pagoParcialModal.anticipo || 0))}</p>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               <div>
                 <div style={{ color: "#888", fontSize: 11, marginBottom: 4 }}>Monto que paga ahora ($)</div>
-                <input value={montoPagoParcial} onChange={e => setMontoPagoParcial(e.target.value)}
-                  placeholder="Ej: 40000" type="number"
-                  style={{ ...inputStyle, border: "1px solid #10B981" }} />
+                <input value={montoPagoParcial} onChange={e => setMontoPagoParcial(e.target.value)} placeholder="Ej: 40000" type="number" style={{ ...inputStyle, border: "1px solid #10B981" }} />
               </div>
               <div>
                 <div style={{ color: "#888", fontSize: 11, marginBottom: 4 }}>Cuenta donde ingresa</div>
@@ -499,9 +515,7 @@ export default function AdminMobileCompleto() {
               </div>
               <div>
                 <div style={{ color: "#888", fontSize: 11, marginBottom: 4 }}>📎 Adjuntar comprobante (opcional)</div>
-                <input type="file" accept="image/*"
-                  onChange={e => e.target.files?.[0] && subirComprobantePago(e.target.files[0])}
-                  style={{ color: "#aaa", fontSize: 11 }} />
+                <input type="file" accept="image/*" onChange={e => e.target.files?.[0] && subirComprobantePago(e.target.files[0])} style={{ color: "#aaa", fontSize: 11 }} />
                 {subiendoComprobantePago && <div style={{ color: "#ff2d78", fontSize: 11, marginTop: 4 }}>Subiendo...</div>}
                 {comprobantePagoParcial && <div style={{ color: "#10B981", fontSize: 11, marginTop: 4 }}>✅ Comprobante listo</div>}
               </div>
@@ -564,68 +578,99 @@ export default function AdminMobileCompleto() {
 
       <div style={{ maxWidth: 600, margin: "0 auto" }}>
 
+        {/* CARGAR VENTA CON CARRITO */}
         {pestana === "cargar_venta" && (
-          <div style={{ background: "#111", borderRadius: 16, padding: 16, border: "1px dashed #ff2d78" }}>
-            <h2 style={{ fontSize: 16, margin: "0 0 16px 0", ...neon }}>Registrar Venta Manual</h2>
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <div>
-                <div style={{ color: "#888", fontSize: 11, marginBottom: 4 }}>Nombre del Cliente</div>
-                <input value={ventaManual.cliente} onChange={e => setVentaManual(p => ({ ...p, cliente: e.target.value }))} placeholder="Nombre y Apellido" style={inputStyle} />
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                <div>
-                  <div style={{ color: "#888", fontSize: 11, marginBottom: 4 }}>Telefono</div>
-                  <input value={ventaManual.telefono} onChange={e => setVentaManual(p => ({ ...p, telefono: e.target.value }))} placeholder="Celular" style={inputStyle} />
-                </div>
-                <div>
-                  <div style={{ color: "#888", fontSize: 11, marginBottom: 4 }}>Dirección</div>
-                  <input value={ventaManual.direccion} onChange={e => setVentaManual(p => ({ ...p, direccion: e.target.value }))} placeholder="Calle y Nro" style={inputStyle} />
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+
+            {/* DATOS CLIENTE */}
+            <div style={{ background: "#111", borderRadius: 16, padding: 16, border: "1px dashed #ff2d78" }}>
+              <h2 style={{ fontSize: 15, margin: "0 0 12px 0", ...neon }}>👤 Datos del Cliente</h2>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <input value={ventaCliente.nombre} onChange={e => setVentaCliente(p => ({ ...p, nombre: e.target.value }))} placeholder="Nombre y Apellido *" style={inputStyle} />
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <input value={ventaCliente.telefono} onChange={e => setVentaCliente(p => ({ ...p, telefono: e.target.value }))} placeholder="Teléfono" style={inputStyle} />
+                  <input value={ventaCliente.direccion} onChange={e => setVentaCliente(p => ({ ...p, direccion: e.target.value }))} placeholder="Dirección" style={inputStyle} />
                 </div>
               </div>
-              <div>
-                <div style={{ color: "#ff2d78", fontSize: 11, fontWeight: 700, marginBottom: 4 }}>1. Filtrar por Categoría</div>
-                <select value={categoriaFiltroVenta} onChange={e => { setCategoriaFiltroVenta(e.target.value); setVentaManual(p => ({ ...p, productoId: "" })); }} style={{ ...inputStyle, border: "1px solid #ff2d78" }}>
-                  <option value="">-- Ver Todas las Categorías --</option>
-                  {listadoCategorias.map(cat => <option key={cat.id} value={cat.Nombre}>{cat.Nombre}</option>)}
-                </select>
-              </div>
-              <div>
-                <div style={{ color: "#888", fontSize: 11, marginBottom: 4 }}>2. Seleccionar Producto</div>
-                <select value={ventaManual.productoId} onChange={e => setVentaManual(p => ({ ...p, productoId: e.target.value }))} style={inputStyle}>
-                  <option value="">-- Elegí un producto --</option>
-                  {productosFiltradosVenta.map(p => (
-                    <option key={p.id} value={p.id}>{p.nombre} (${(p.precio_oferta || p.precio).toLocaleString("es-AR")} - Stock: {p.stock})</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <div style={{ color: "#ff2d78", fontSize: 11, fontWeight: 700, marginBottom: 4 }}>3. Cantidad</div>
-                <input value={ventaManual.cantidad} onChange={e => setVentaManual(p => ({ ...p, cantidad: e.target.value }))} placeholder="1" type="number" min="1" style={{ ...inputStyle, border: "1px solid #ff2d78" }} />
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#0a0a0a", padding: 12, borderRadius: 10, border: "1px solid #222" }}>
-                <input type="checkbox" id="drop" checked={ventaManual.esDropshipping} onChange={e => setVentaManual(p => ({ ...p, esDropshipping: e.target.checked }))} style={{ transform: "scale(1.3)" }} />
-                <label htmlFor="drop" style={{ fontSize: 13, color: "#ccc" }}>Es Dropshipping (sin descontar stock propio)</label>
-              </div>
-              <div>
-                <div style={{ color: "#888", fontSize: 11, marginBottom: 4 }}>Forma de Pago / Modalidad</div>
-                <select value={ventaManual.tipoPago} onChange={e => setVentaManual(p => ({ ...p, tipoPago: e.target.value }))} style={inputStyle}>
-                  <option value="Efectivo">Efectivo Líquido</option>
-                  <option value="Alias: carito.shop">Transferencia: Alias carito.shop</option>
-                  <option value="Brubank Señora (DIARIO.ITALIA.ARENA)">Transferencia: Brubank Señora</option>
-                  <option value="Cuotas">Financiar en 3 Cuotas</option>
-                </select>
-              </div>
-              {ventaManual.tipoPago !== "Cuotas" && (
-                <div>
-                  <div style={{ color: "#ff2d78", fontSize: 11, fontWeight: 700, marginBottom: 4 }}>Monto Entregado / Seña Recibida ($)</div>
-                  <input value={ventaManual.montoEntregado} onChange={e => setVentaManual(p => ({ ...p, montoEntregado: e.target.value }))} placeholder="Dejar vacío si NO pagó nada aún" type="number" style={{ ...inputStyle, border: "1px solid #ff2d78" }} />
-                  <span style={{ color: "#555", fontSize: 10, display: "block", marginTop: 4 }}>
-                    Vacío = debe el total. Monto parcial = queda como deuda la diferencia. Monto total = pagado completo.
-                  </span>
-                </div>
-              )}
-              <button type="button" onClick={ventaManual.productoId === "" ? () => mostrarToast("Elegí un producto") : ejecutarCargaVentaManual} style={buttonStyle}>Registrar Venta</button>
             </div>
+
+            {/* AGREGAR PRODUCTOS */}
+            <div style={{ background: "#111", borderRadius: 16, padding: 16, border: "1px solid #333" }}>
+              <h2 style={{ fontSize: 15, margin: "0 0 12px 0", color: "#fff" }}>🛍️ Agregar Productos</h2>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <div>
+                  <div style={{ color: "#ff2d78", fontSize: 11, fontWeight: 700, marginBottom: 4 }}>1. Filtrar por Categoría</div>
+                  <select value={categoriaFiltroVenta} onChange={e => { setCategoriaFiltroVenta(e.target.value); setProductoSeleccionado(""); }} style={{ ...inputStyle, border: "1px solid #ff2d78" }}>
+                    <option value="">-- Todas las Categorías --</option>
+                    {listadoCategorias.map(cat => <option key={cat.id} value={cat.Nombre}>{cat.Nombre}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <div style={{ color: "#888", fontSize: 11, marginBottom: 4 }}>2. Seleccionar Producto</div>
+                  <select value={productoSeleccionado} onChange={e => setProductoSeleccionado(e.target.value)} style={inputStyle}>
+                    <option value="">-- Elegí un producto --</option>
+                    {productosFiltradosVenta.map(p => (
+                      <option key={p.id} value={p.id}>{p.nombre} (${(p.precio_oferta || p.precio).toLocaleString("es-AR")} - Stock: {p.stock})</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <div style={{ color: "#ff2d78", fontSize: 11, fontWeight: 700, marginBottom: 4 }}>3. Cantidad</div>
+                  <input value={cantidadSeleccionada} onChange={e => setCantidadSeleccionada(e.target.value)} placeholder="1" type="number" min="1" style={{ ...inputStyle, border: "1px solid #ff2d78" }} />
+                </div>
+                <button onClick={agregarAlCarritoVenta} style={{ ...buttonStyle, background: "linear-gradient(135deg, #1D4ED8, #1e40af)" }}>
+                  + Agregar al Pedido
+                </button>
+              </div>
+            </div>
+
+            {/* RESUMEN CARRITO */}
+            {carritoVenta.length > 0 && (
+              <div style={{ background: "#111", borderRadius: 16, padding: 16, border: "1px solid #ff2d78" }}>
+                <h2 style={{ fontSize: 15, margin: "0 0 12px 0", ...neon }}>🧾 Resumen del Pedido</h2>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
+                  {carritoVenta.map(item => (
+                    <div key={item.productoId} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 10px", background: "#0a0a0a", borderRadius: 10, border: "1px solid #222" }}>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>{item.nombre}</div>
+                        <div style={{ fontSize: 11, color: "#888" }}>x{item.cantidad} × {fmt(item.precio)}</div>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 13, fontWeight: 800, color: "#ff2d78" }}>{fmt(item.precio * item.cantidad)}</span>
+                        <button onClick={() => quitarDelCarritoVenta(item.productoId)} style={{ background: "#7F1D1D", border: "none", color: "#fff", borderRadius: 6, padding: "2px 8px", fontSize: 12, cursor: "pointer" }}>✕</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ borderTop: "1px solid #ff2d78", paddingTop: 10, display: "flex", justifyContent: "space-between", marginBottom: 14 }}>
+                  <span style={{ fontWeight: 700, fontSize: 14 }}>TOTAL:</span>
+                  <span style={{ fontWeight: 900, fontSize: 18, color: "#ff2d78" }}>{fmt(totalCarritoVenta)}</span>
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#0a0a0a", padding: 12, borderRadius: 10, border: "1px solid #222" }}>
+                    <input type="checkbox" id="drop2" checked={esDropshippingVenta} onChange={e => setEsDropshippingVenta(e.target.checked)} style={{ transform: "scale(1.3)" }} />
+                    <label htmlFor="drop2" style={{ fontSize: 13, color: "#ccc" }}>Es Dropshipping</label>
+                  </div>
+                  <div>
+                    <div style={{ color: "#888", fontSize: 11, marginBottom: 4 }}>Forma de Pago</div>
+                    <select value={tipoPagoVenta} onChange={e => setTipoPagoVenta(e.target.value)} style={inputStyle}>
+                      <option value="Efectivo">💵 Efectivo</option>
+                      <option value="Alias: carito.shop">📱 Alias carito.shop</option>
+                      <option value="Brubank Señora (DIARIO.ITALIA.ARENA)">👩 Brubank Señora</option>
+                      <option value="Cuotas">📈 Financiar en 3 Cuotas</option>
+                    </select>
+                  </div>
+                  {tipoPagoVenta !== "Cuotas" && (
+                    <div>
+                      <div style={{ color: "#ff2d78", fontSize: 11, fontWeight: 700, marginBottom: 4 }}>Monto Entregado / Seña ($)</div>
+                      <input value={montoEntregadoVenta} onChange={e => setMontoEntregadoVenta(e.target.value)} placeholder="Vacío = debe el total" type="number" style={{ ...inputStyle, border: "1px solid #ff2d78" }} />
+                    </div>
+                  )}
+                  <button onClick={ejecutarCargaVentaManual} style={buttonStyle}>✅ Registrar Venta</button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -765,15 +810,15 @@ export default function AdminMobileCompleto() {
                     </button>
                   )}
                   {deuda > 0 && (
-  <button onClick={() => {
-    const estadoEntrega = pedido.estado_entrega === "entregado" ? "Entregado ✅" : "Pendiente de entrega 📦";
-    const pagado = pedido.anticipo || 0;
-    const msg = `📦 *CARITO.SHOP*\n━━━━━━━━━━━━━━\nHola ${pedido.cliente_nombre} 👋\n\nTe recordamos que tenés un saldo pendiente:\n\n🛍️ Producto: ${pedido.productos}\n📬 Estado del pedido: ${estadoEntrega}\n💰 Total: ${fmt(pedido.total)}\n✅ Pagado: ${fmt(pagado)}\n⚠️ Saldo pendiente: ${fmt(deuda)}\n\nPor favor realizá la transferencia a:\n📱 Alias: carito.shop\n\n¡Muchas gracias! 🌸\n━━━━━━━━━━━━━━\nCARITO.SHOP - Tu tienda favorita`;
-    window.open("https://wa.me/?text=" + encodeURIComponent(msg), "_blank");
-  }} style={{ width: "100%", marginTop: 6, padding: 10, background: "transparent", border: "1px solid #25D366", borderRadius: 10, color: "#25D366", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
-    📲 Recordatorio de deuda por WhatsApp
-  </button>
-)}
+                    <button onClick={() => {
+                      const estadoEntrega = pedido.estado_entrega === "entregado" ? "Entregado ✅" : "Pendiente de entrega 📦";
+                      const pagado = pedido.anticipo || 0;
+                      const msg = `📦 *CARITO.SHOP*\n━━━━━━━━━━━━━━\nHola ${pedido.cliente_nombre} 👋\n\nTe recordamos que tenés un saldo pendiente:\n\n🛍️ Producto: ${pedido.productos}\n📬 Estado del pedido: ${estadoEntrega}\n💰 Total: ${fmt(pedido.total)}\n✅ Pagado: ${fmt(pagado)}\n⚠️ Saldo pendiente: ${fmt(deuda)}\n\nPor favor realizá la transferencia a:\n📱 Alias: carito.shop\n\n¡Muchas gracias! 🌸\n━━━━━━━━━━━━━━\nCARITO.SHOP - Tu tienda favorita`;
+                      window.open("https://wa.me/?text=" + encodeURIComponent(msg), "_blank");
+                    }} style={{ width: "100%", marginTop: 6, padding: 10, background: "transparent", border: "1px solid #25D366", borderRadius: 10, color: "#25D366", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+                      📲 Recordatorio de deuda por WhatsApp
+                    </button>
+                  )}
                   {editandoDeudaId === pedido.id ? (
                     <div style={{ marginTop: 8, display: "flex", gap: 6 }}>
                       <input value={nuevoSaldoDeuda} onChange={e => setNuevoSaldoDeuda(e.target.value)} placeholder="Nueva deuda" type="number" style={{ ...inputStyle, flex: 1, padding: 8 }} />
@@ -791,7 +836,6 @@ export default function AdminMobileCompleto() {
 
         {pestana === "caja" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-
             <div style={{ background: "#111", border: "1px solid #F59E0B", borderRadius: 16, padding: 16 }}>
               <h3 style={{ color: "#F59E0B", margin: "0 0 14px 0", fontSize: 15 }}>💳 Saldos por Cobrar</h3>
               {deudores.length === 0 && <div style={{ color: "#444", fontSize: 12, textAlign: "center", padding: 10 }}>No hay deudas pendientes 🎉</div>}
@@ -937,7 +981,6 @@ export default function AdminMobileCompleto() {
                 ))}
               </div>
             </div>
-
           </div>
         )}
 
