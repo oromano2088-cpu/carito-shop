@@ -764,6 +764,16 @@ export default function AdminMobileCompleto() {
                       💰 Registrar Pago Parcial
                     </button>
                   )}
+                  {deuda > 0 && (
+  <button onClick={() => {
+    const estadoEntrega = pedido.estado_entrega === "entregado" ? "Entregado ✅" : "Pendiente de entrega 📦";
+    const pagado = pedido.anticipo || 0;
+    const msg = `📦 *CARITO.SHOP*\n━━━━━━━━━━━━━━\nHola ${pedido.cliente_nombre} 👋\n\nTe recordamos que tenés un saldo pendiente:\n\n🛍️ Producto: ${pedido.productos}\n📬 Estado del pedido: ${estadoEntrega}\n💰 Total: ${fmt(pedido.total)}\n✅ Pagado: ${fmt(pagado)}\n⚠️ Saldo pendiente: ${fmt(deuda)}\n\nPor favor realizá la transferencia a:\n📱 Alias: carito.shop\n\n¡Muchas gracias! 🌸\n━━━━━━━━━━━━━━\nCARITO.SHOP - Tu tienda favorita`;
+    window.open("https://wa.me/?text=" + encodeURIComponent(msg), "_blank");
+  }} style={{ width: "100%", marginTop: 6, padding: 10, background: "transparent", border: "1px solid #25D366", borderRadius: 10, color: "#25D366", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+    📲 Recordatorio de deuda por WhatsApp
+  </button>
+)}
                   {editandoDeudaId === pedido.id ? (
                     <div style={{ marginTop: 8, display: "flex", gap: 6 }}>
                       <input value={nuevoSaldoDeuda} onChange={e => setNuevoSaldoDeuda(e.target.value)} placeholder="Nueva deuda" type="number" style={{ ...inputStyle, flex: 1, padding: 8 }} />
