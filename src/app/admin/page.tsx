@@ -41,7 +41,6 @@ const buttonStyle = {
   fontWeight: 800, fontSize: 14, cursor: "pointer",
 } as const;
 
-// ─── Utilidades ───────────────────────────────────────────────────────────────
 const normalizarCuenta = (str: string): "alias" | "brubank" | "efectivo" | string => {
   if (!str) return "";
   const s = str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
@@ -54,14 +53,12 @@ const normalizarCuenta = (str: string): "alias" | "brubank" | "efectivo" | strin
 
 const fmt = (n: number) => "$" + Math.round(n).toLocaleString("es-AR");
 
-// ─── Componente principal ─────────────────────────────────────────────────────
 export default function AdminMobileCompleto() {
   const [logueado, setLogueado] = useState(false);
   const [clave, setClave] = useState("");
   const [errorLogin, setErrorLogin] = useState("");
   const [pestana, setPestana] = useState<"catalogo" | "alta" | "ventas" | "caja" | "cargar_venta">("catalogo");
 
-  // Datos
   const [cajas, setCajas] = useState({ alias: 0, brubankSenora: 0, efectivo: 0 });
   const [productos, setProductos] = useState<Producto[]>([]);
   const [listadoCategorias, setListadoCategorias] = useState<Categoria[]>([]);
@@ -69,7 +66,6 @@ export default function AdminMobileCompleto() {
   const [gastos, setGastos] = useState<Gasto[]>([]);
   const [historialUnificado, setHistorialUnificado] = useState<ElementoHistorial[]>([]);
 
-  // UI
   const [toast, setToast] = useState("");
   const [cargando, setCargando] = useState(false);
   const [editando, setEditando] = useState<Producto | null>(null);
@@ -79,7 +75,6 @@ export default function AdminMobileCompleto() {
   const [filtroMes, setFiltroMes] = useState("Todos");
   const [mesesDisponibles, setMesesDisponibles] = useState<string[]>([]);
 
-  // Alta producto
   const [nuevo, setNuevo] = useState({
     nombre: "", descripcion: "", precio: "", precio_oferta: "", oferta_hasta: "",
     emoji: "🛍️", imagen: "", imagen2: "", imagen3: "", categoria: "", stock: "0",
@@ -89,35 +84,28 @@ export default function AdminMobileCompleto() {
   const [subiendo, setSubiendo] = useState(false);
   const [coincidenciasAlta, setCoincidenciasAlta] = useState<Producto[]>([]);
 
-  // Cargar venta
   const [ventaManual, setVentaManual] = useState({
     cliente: "", telefono: "", direccion: "", productoId: "",
-    tipoPago: "Efectivo", esDropshipping: false, montoEntregado: "",
+    tipoPago: "Efectivo", esDropshipping: false, montoEntregado: "", cantidad: "1",
   });
   const [categoriaFiltroVenta, setCategoriaFiltroVenta] = useState("");
 
-  // Caja – movimiento manual
   const [tipoMovimiento, setTipoMovimiento] = useState<"ingreso" | "egreso">("egreso");
   const [movimientoManual, setMovimientoManual] = useState({
     entidad: "", monto: "", concepto: "", cuenta: "alias", comprobanteUrl: "",
   });
   const [subiendoComprobante, setSubiendoComprobante] = useState(false);
 
-  // Caja – filtros historial
   const [filtroHistorialCuenta, setFiltroHistorialCuenta] = useState("todas");
   const [filtroHistorialTipo, setFiltroHistorialTipo] = useState("todos");
   const [editandoDeudaId, setEditandoDeudaId] = useState<number | null>(null);
   const [nuevoSaldoDeuda, setNuevoSaldoDeuda] = useState("");
-
-  // Detalles producto
   const [vistaProductoCompleto, setVistaProductoCompleto] = useState<Producto | null>(null);
 
   useEffect(() => { if (logueado) cargarTodo(); }, [logueado]);
 
-  // ── Carga principal ──────────────────────────────────────────────────────────
   const cargarTodo = async () => {
     setCargando(true);
-
     const { data: prodData } = await supabase.from("productos").select("*").order("id", { ascending: false });
     const { data: catData } = await supabase.from("categorias").select("*").order("Nombre", { ascending: true });
     const { data: pData } = await supabase.from("pedidos").select("*").order("creado_en", { ascending: false });
@@ -144,7 +132,6 @@ export default function AdminMobileCompleto() {
     const listaGastos: Gasto[] = gData || [];
     setGastos(listaGastos);
 
-    // ── Recalcular cajas e historial ──
     let totalAlias = 0, totalBrubank = 0, totalEfectivo = 0;
     const pool: ElementoHistorial[] = [];
 
@@ -158,9 +145,7 @@ export default function AdminMobileCompleto() {
       }
       if (p.aprobado && montoEfectivo > 0) {
         pool.push({
-          fecha: p.creado_en,
-          entidad: p.cliente_nombre,
-          concepto: p.productos,
+          fecha: p.creado_en, entidad: p.cliente_nombre, concepto: p.productos,
           monto: montoEfectivo,
           cuenta: tag === "alias" ? "📱 Alias" : tag === "brubank" ? "👩 Brubank" : "💵 Efectivo",
           esIngreso: true,
@@ -175,18 +160,9 @@ export default function AdminMobileCompleto() {
       if (tag === "alias") { esIngresoManual ? (totalAlias += monto) : (totalAlias -= monto); }
       else if (tag === "brubank") { esIngresoManual ? (totalBrubank += monto) : (totalBrubank -= monto); }
       else if (tag === "efectivo") { esIngresoManual ? (totalEfectivo += monto) : (totalEfectivo -= monto); }
-
       const concepto = (g.concepto || "").replace("[INGRESO MANUAL] - ", "");
       const cuentaNombre = tag === "alias" ? "📱 Alias" : tag === "brubank" ? "👩 Brubank" : "💵 Efectivo";
-      pool.push({
-        fecha: g.creado_en,
-        entidad: g.distribuidora,
-        concepto,
-        monto,
-        cuenta: cuentaNombre,
-        esIngreso: esIngresoManual,
-        comprobanteUrl: g.comprobante_url,
-      });
+      pool.push({ fecha: g.creado_en, entidad: g.distribuidora, concepto, monto, cuenta: cuentaNombre, esIngreso: esIngresoManual, comprobanteUrl: g.comprobante_url });
     });
 
     pool.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
@@ -195,11 +171,9 @@ export default function AdminMobileCompleto() {
     setCargando(false);
   };
 
-  // ── Helpers ──────────────────────────────────────────────────────────────────
   const mostrarToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
   const login = () => { if (clave === CLAVE) setLogueado(true); else setErrorLogin("Clave incorrecta"); };
 
-  // ── Catálogo ─────────────────────────────────────────────────────────────────
   const toggleActivo = async (id: number, activo: boolean) => {
     await supabase.from("productos").update({ activo: !activo }).eq("id", id);
     cargarTodo();
@@ -228,7 +202,6 @@ export default function AdminMobileCompleto() {
     cargarTodo();
   };
 
-  // ── Alta ─────────────────────────────────────────────────────────────────────
   const subirFoto = async (file: File, campo: string) => {
     setSubiendo(true);
     const nombre = Date.now() + "-" + file.name;
@@ -239,6 +212,7 @@ export default function AdminMobileCompleto() {
     setSubiendo(false);
     mostrarToast("Foto subida");
   };
+
   const agregar = async () => {
     if (!nuevo.nombre || !nuevo.precio) { mostrarToast("Completá nombre y precio"); return; }
     await supabase.from("productos").insert({
@@ -253,6 +227,7 @@ export default function AdminMobileCompleto() {
     setPestana("catalogo");
     cargarTodo();
   };
+
   const ejecutarCrearCategoria = async () => {
     if (!nuevaCatNombre.trim()) return;
     const { error: catErr } = await supabase.from("categorias").insert({ Nombre: nuevaCatNombre.trim() });
@@ -262,7 +237,6 @@ export default function AdminMobileCompleto() {
     setNuevaCatNombre(""); setCreandoNuevaCat(false); cargarTodo();
   };
 
-  // ── Ventas ───────────────────────────────────────────────────────────────────
   const cambiarEstadoPago = async (id: number, nuevoEstado: string) => {
     const updates: Record<string, unknown> = { estado_pago: nuevoEstado };
     if (nuevoEstado === "pagado") {
@@ -309,12 +283,12 @@ export default function AdminMobileCompleto() {
     cargarTodo();
   };
 
-  // ── Cargar venta ─────────────────────────────────────────────────────────────
   const ejecutarCargaVentaManual = async () => {
     if (!ventaManual.cliente || !ventaManual.productoId) { mostrarToast("Asigná cliente y producto"); return; }
     const prodSel = productos.find(p => p.id === parseInt(ventaManual.productoId));
     if (!prodSel) return;
-    const precioBase = prodSel.precio_oferta || prodSel.precio;
+    const cantidad = parseInt(ventaManual.cantidad) || 1;
+    const precioBase = (prodSel.precio_oferta || prodSel.precio) * cantidad;
     let total = precioBase, esFinanciado = false, cuotasTotales = 1;
     let cuotasPagadas = 1, montoCuota = 0, anticipo = precioBase;
     let cuentaAsignada = ventaManual.tipoPago === "Cuotas" ? "Efectivo" : ventaManual.tipoPago;
@@ -335,32 +309,25 @@ export default function AdminMobileCompleto() {
     }
     await supabase.from("pedidos").insert({
       cliente_nombre: ventaManual.cliente, cliente_telefono: ventaManual.telefono,
-      cliente_direccion: ventaManual.direccion, productos: prodSel.nombre + " x1",
+      cliente_direccion: ventaManual.direccion, productos: prodSel.nombre + " x" + cantidad,
       total, estado_pago: estadoPago, estado_entrega: "pendiente_entrega",
       aprobado: false, es_financiado: esFinanciado, cuotas_totales: cuotasTotales,
       cuotas_pagadas: cuotasPagadas, monto_cuota: montoCuota, anticipo,
       cuenta_ingreso: cuentaAsignada, es_dropshipping: ventaManual.esDropshipping,
     });
     mostrarToast("Venta registrada");
-    setVentaManual({ cliente: "", telefono: "", direccion: "", productoId: "", tipoPago: "Efectivo", esDropshipping: false, montoEntregado: "" });
+    setVentaManual({ cliente: "", telefono: "", direccion: "", productoId: "", tipoPago: "Efectivo", esDropshipping: false, montoEntregado: "", cantidad: "1" });
     setCategoriaFiltroVenta("");
     setPestana("ventas");
     cargarTodo();
   };
 
-  // ── Movimiento manual (CAJA) ──────────────────────────────────────────────────
   const ejecutarRegistroContableManual = async () => {
-    if (!movimientoManual.entidad || !movimientoManual.monto) {
-      mostrarToast("Completá los campos obligatorios");
-      return;
-    }
+    if (!movimientoManual.entidad || !movimientoManual.monto) { mostrarToast("Completá los campos obligatorios"); return; }
     const concepto = movimientoManual.concepto || (tipoMovimiento === "ingreso" ? "Pago recibido" : "Compra/Gasto");
     const { error: insertError } = await supabase.from("gastos_distribuidoras").insert({
-      distribuidora: movimientoManual.entidad,
-      monto: Number(movimientoManual.monto),
-      concepto,
-      cuenta_salida: movimientoManual.cuenta,
-      tipo_movimiento: tipoMovimiento,
+      distribuidora: movimientoManual.entidad, monto: Number(movimientoManual.monto),
+      concepto, cuenta_salida: movimientoManual.cuenta, tipo_movimiento: tipoMovimiento,
       comprobante_url: movimientoManual.comprobanteUrl || null,
     });
     if (insertError) { mostrarToast("Error al guardar"); return; }
@@ -379,7 +346,6 @@ export default function AdminMobileCompleto() {
     mostrarToast("Comprobante adjuntado");
   };
 
-  // ── Derived ───────────────────────────────────────────────────────────────────
   const pedidosFiltrados = pedidos.filter(p => filtroMes === "Todos" ? true : p.creado_en?.startsWith(filtroMes));
   const pedidosActivos = pedidosFiltrados.filter(p => !(p.aprobado && p.estado_pago === "pagado" && p.estado_entrega === "entregado"));
   const productosFiltrados = productos.filter(p =>
@@ -390,7 +356,6 @@ export default function AdminMobileCompleto() {
   const productosFiltradosVenta = productos.filter(p =>
     categoriaFiltroVenta === "" ? true : p.categoria === categoriaFiltroVenta
   );
-
   const historialFiltrado = historialUnificado.filter(h => {
     const pasaCuenta = filtroHistorialCuenta === "todas" ? true :
       (filtroHistorialCuenta === "alias" && h.cuenta.toLowerCase().includes("alias")) ||
@@ -400,12 +365,8 @@ export default function AdminMobileCompleto() {
       filtroHistorialTipo === "ingreso" ? h.esIngreso : !h.esIngreso;
     return pasaCuenta && pasaTipo;
   });
-
   const totalHistorialFiltrado = historialFiltrado.reduce((acc, h) => h.esIngreso ? acc + h.monto : acc - h.monto, 0);
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // LOGIN
-  // ─────────────────────────────────────────────────────────────────────────────
   if (!logueado) return (
     <main style={{ minHeight: "100vh", background: "#0a0a0a", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "sans-serif", padding: 16 }}>
       <div style={{ background: "#111", border: "1px solid #ff2d78", borderRadius: 20, padding: 30, width: "100%", maxWidth: 320, textAlign: "center" }}>
@@ -419,20 +380,15 @@ export default function AdminMobileCompleto() {
     </main>
   );
 
-  // ─────────────────────────────────────────────────────────────────────────────
-  // APP PRINCIPAL
-  // ─────────────────────────────────────────────────────────────────────────────
   return (
     <main style={{ minHeight: "100vh", background: "#0a0a0a", fontFamily: "sans-serif", color: "#fff", padding: "12px 12px 80px 12px", boxSizing: "border-box" }}>
 
-      {/* TOAST */}
       {toast && (
         <div style={{ position: "fixed", bottom: 20, left: "50%", transform: "translateX(-50%)", background: "#ff2d78", color: "#fff", padding: "10px 20px", borderRadius: 10, fontWeight: 700, zIndex: 9999, fontSize: 13 }}>
           {toast}
         </div>
       )}
 
-      {/* CONFIRMAR ELIMINAR */}
       {confirmarEliminar && (
         <div style={{ position: "fixed", inset: 0, zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
           <div onClick={() => setConfirmarEliminar(null)} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.85)" }} />
@@ -455,7 +411,6 @@ export default function AdminMobileCompleto() {
         </div>
       )}
 
-      {/* HEADER */}
       <div style={{ padding: "8px 4px", borderBottom: "1px solid #222", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
           <h1 style={{ ...neon, fontSize: 19, fontWeight: 900, margin: 0 }}>CARITO.SHOP - Admin</h1>
@@ -464,7 +419,6 @@ export default function AdminMobileCompleto() {
         <a href="/" style={{ color: "#ff2d78", fontSize: 12, textDecoration: "none" }}>Ver tienda</a>
       </div>
 
-      {/* MENÚ */}
       <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 20 }}>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
           <button onClick={() => setPestana("catalogo")} style={{ padding: 12, borderRadius: 10, border: "none", fontWeight: 700, fontSize: 12, background: pestana === "catalogo" ? "#ff2d78" : "#111", color: "#fff", cursor: "pointer" }}>📦 Catalogo</button>
@@ -479,9 +433,6 @@ export default function AdminMobileCompleto() {
 
       <div style={{ maxWidth: 600, margin: "0 auto" }}>
 
-        {/* ══════════════════════════════════════════════════
-            TAB: CARGAR VENTA
-        ══════════════════════════════════════════════════ */}
         {pestana === "cargar_venta" && (
           <div style={{ background: "#111", borderRadius: 16, padding: 16, border: "1px dashed #ff2d78" }}>
             <h2 style={{ fontSize: 16, margin: "0 0 16px 0", ...neon }}>Registrar Venta Manual</h2>
@@ -516,6 +467,10 @@ export default function AdminMobileCompleto() {
                   ))}
                 </select>
               </div>
+              <div>
+                <div style={{ color: "#ff2d78", fontSize: 11, fontWeight: 700, marginBottom: 4 }}>3. Cantidad</div>
+                <input value={ventaManual.cantidad} onChange={e => setVentaManual(p => ({ ...p, cantidad: e.target.value }))} placeholder="1" type="number" min="1" style={{ ...inputStyle, border: "1px solid #ff2d78" }} />
+              </div>
               <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#0a0a0a", padding: 12, borderRadius: 10, border: "1px solid #222" }}>
                 <input type="checkbox" id="drop" checked={ventaManual.esDropshipping} onChange={e => setVentaManual(p => ({ ...p, esDropshipping: e.target.checked }))} style={{ transform: "scale(1.3)" }} />
                 <label htmlFor="drop" style={{ fontSize: 13, color: "#ccc" }}>Es Dropshipping (sin descontar stock propio)</label>
@@ -541,15 +496,11 @@ export default function AdminMobileCompleto() {
           </div>
         )}
 
-        {/* ══════════════════════════════════════════════════
-            TAB: CATÁLOGO
-        ══════════════════════════════════════════════════ */}
         {pestana === "catalogo" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <input type="text" value={busquedaCatalogo} onChange={e => setBusquedaCatalogo(e.target.value)} placeholder="Buscar producto por nombre..." style={inputStyle} />
             {busquedaCatalogo.trim() === "" ? (
               <>
-                {/* Ofertas activas */}
                 {(() => {
                   const ahora = new Date();
                   const ofertasActivas = productos.filter(p => p.precio_oferta && p.oferta_hasta && new Date(p.oferta_hasta) > ahora);
@@ -568,7 +519,6 @@ export default function AdminMobileCompleto() {
                     </div>
                   ) : null;
                 })()}
-                {/* Categorías normales */}
                 {listadoCategorias.map(cat => {
                   const prods = productos.filter(p => p.categoria === cat.Nombre);
                   const abierta = categoriaAbierta === cat.Nombre;
@@ -598,9 +548,6 @@ export default function AdminMobileCompleto() {
           </div>
         )}
 
-        {/* ══════════════════════════════════════════════════
-            TAB: NUEVO PRODUCTO
-        ══════════════════════════════════════════════════ */}
         {pestana === "alta" && (
           <div style={{ background: "#111", borderRadius: 16, padding: 16, border: "1px solid #ff2d78" }}>
             <h2 style={{ fontSize: 16, margin: "0 0 16px 0", ...neon }}>Nuevo Producto</h2>
@@ -636,9 +583,6 @@ export default function AdminMobileCompleto() {
           </div>
         )}
 
-        {/* ══════════════════════════════════════════════════
-            TAB: VENTAS / ORDENES
-        ══════════════════════════════════════════════════ */}
         {pestana === "ventas" && (
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
@@ -696,13 +640,8 @@ export default function AdminMobileCompleto() {
           </div>
         )}
 
-        {/* ══════════════════════════════════════════════════
-            TAB: CAJA  ← NUEVA Y MEJORADA
-        ══════════════════════════════════════════════════ */}
         {pestana === "caja" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-
-            {/* ── Saldos ── */}
             <div style={{ background: "#111", border: "1px solid #ff2d78", borderRadius: 16, padding: 16 }}>
               <h3 style={{ ...neon, margin: "0 0 14px 0", fontSize: 15 }}>Saldos Disponibles</h3>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -723,11 +662,8 @@ export default function AdminMobileCompleto() {
               </div>
             </div>
 
-            {/* ── Registrar movimiento ── */}
             <div style={{ background: "#111", border: "1px solid #333", borderRadius: 16, padding: 16 }}>
               <h3 style={{ color: "#fff", margin: "0 0 14px 0", fontSize: 15 }}>Registrar Movimiento</h3>
-
-              {/* Selector Ingreso / Egreso */}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 14 }}>
                 <button onClick={() => setTipoMovimiento("ingreso")}
                   style={{ padding: 12, borderRadius: 10, border: "2px solid " + (tipoMovimiento === "ingreso" ? "#10B981" : "#222"), background: tipoMovimiento === "ingreso" ? "#052e16" : "#0a0a0a", color: tipoMovimiento === "ingreso" ? "#10B981" : "#555", fontWeight: 800, fontSize: 13, cursor: "pointer" }}>
@@ -738,22 +674,16 @@ export default function AdminMobileCompleto() {
                   ↓ EGRESO
                 </button>
               </div>
-
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 <div>
-                  <div style={{ color: "#888", fontSize: 11, marginBottom: 4 }}>
-                    {tipoMovimiento === "ingreso" ? "Origen / De quién" : "Destino / A quién"}
-                  </div>
+                  <div style={{ color: "#888", fontSize: 11, marginBottom: 4 }}>{tipoMovimiento === "ingreso" ? "Origen / De quién" : "Destino / A quién"}</div>
                   <input value={movimientoManual.entidad} onChange={e => setMovimientoManual(p => ({ ...p, entidad: e.target.value }))}
-                    placeholder={tipoMovimiento === "ingreso" ? "Ej: Cliente, Inversor..." : "Ej: Distribuidora, Proveedor..."}
-                    style={inputStyle} />
+                    placeholder={tipoMovimiento === "ingreso" ? "Ej: Cliente, Inversor..." : "Ej: Distribuidora, Proveedor..."} style={inputStyle} />
                 </div>
-
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                   <div>
                     <div style={{ color: "#888", fontSize: 11, marginBottom: 4 }}>Monto ($)</div>
-                    <input value={movimientoManual.monto} onChange={e => setMovimientoManual(p => ({ ...p, monto: e.target.value }))}
-                      placeholder="0" type="number"
+                    <input value={movimientoManual.monto} onChange={e => setMovimientoManual(p => ({ ...p, monto: e.target.value }))} placeholder="0" type="number"
                       style={{ ...inputStyle, border: tipoMovimiento === "ingreso" ? "1px solid #10B981" : "1px solid #EF4444" }} />
                   </div>
                   <div>
@@ -765,29 +695,20 @@ export default function AdminMobileCompleto() {
                     </select>
                   </div>
                 </div>
-
                 <div>
                   <div style={{ color: "#888", fontSize: 11, marginBottom: 4 }}>Concepto (opcional)</div>
-                  <input value={movimientoManual.concepto} onChange={e => setMovimientoManual(p => ({ ...p, concepto: e.target.value }))}
-                    placeholder="Ej: Compra stock, Pago seña, etc."
-                    style={inputStyle} />
+                  <input value={movimientoManual.concepto} onChange={e => setMovimientoManual(p => ({ ...p, concepto: e.target.value }))} placeholder="Ej: Compra stock, Pago seña, etc." style={inputStyle} />
                 </div>
-
-                {/* Comprobante */}
                 <div style={{ background: "#0a0a0a", borderRadius: 10, padding: 10, border: "1px dashed #333" }}>
                   <div style={{ color: "#888", fontSize: 11, marginBottom: 6 }}>📎 Adjuntar comprobante (opcional)</div>
-                  <input type="file" accept="image/*,application/pdf"
-                    onChange={e => e.target.files?.[0] && subirFotoComprobante(e.target.files[0])}
-                    style={{ color: "#aaa", fontSize: 11 }} />
+                  <input type="file" accept="image/*,application/pdf" onChange={e => e.target.files?.[0] && subirFotoComprobante(e.target.files[0])} style={{ color: "#aaa", fontSize: 11 }} />
                   {subiendoComprobante && <div style={{ color: "#ff2d78", fontSize: 11, marginTop: 4 }}>Subiendo...</div>}
                   {movimientoManual.comprobanteUrl && (
                     <div style={{ marginTop: 6 }}>
-                      <a href={movimientoManual.comprobanteUrl} target="_blank" rel="noreferrer"
-                        style={{ color: "#10B981", fontSize: 11, textDecoration: "none" }}>✅ Comprobante adjuntado - Ver</a>
+                      <a href={movimientoManual.comprobanteUrl} target="_blank" rel="noreferrer" style={{ color: "#10B981", fontSize: 11, textDecoration: "none" }}>✅ Comprobante adjuntado - Ver</a>
                     </div>
                   )}
                 </div>
-
                 <button onClick={ejecutarRegistroContableManual}
                   style={{ ...buttonStyle, background: tipoMovimiento === "ingreso" ? "linear-gradient(135deg, #10B981, #059669)" : "linear-gradient(135deg, #EF4444, #B91C1C)" }}>
                   {tipoMovimiento === "ingreso" ? "↑ Registrar Ingreso" : "↓ Registrar Egreso"}
@@ -795,11 +716,8 @@ export default function AdminMobileCompleto() {
               </div>
             </div>
 
-            {/* ── Historial ── */}
             <div style={{ background: "#111", border: "1px solid #222", borderRadius: 16, padding: 16 }}>
               <h3 style={{ color: "#fff", margin: "0 0 12px 0", fontSize: 15 }}>📋 Historial de Movimientos</h3>
-
-              {/* Filtros */}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
                 <select value={filtroHistorialCuenta} onChange={e => setFiltroHistorialCuenta(e.target.value)} style={{ ...inputStyle, padding: "8px 10px", fontSize: 12 }}>
                   <option value="todas">Todas las cuentas</option>
@@ -813,20 +731,14 @@ export default function AdminMobileCompleto() {
                   <option value="egreso">↓ Solo egresos</option>
                 </select>
               </div>
-
-              {/* Resumen filtrado */}
               <div style={{ background: "#0a0a0a", borderRadius: 10, padding: "8px 12px", marginBottom: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span style={{ fontSize: 12, color: "#888" }}>{historialFiltrado.length} movimientos</span>
                 <span style={{ fontSize: 14, fontWeight: 700, color: totalHistorialFiltrado >= 0 ? "#10B981" : "#EF4444" }}>
                   {totalHistorialFiltrado >= 0 ? "+" : ""}{fmt(totalHistorialFiltrado)}
                 </span>
               </div>
-
-              {/* Lista */}
               <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 500, overflowY: "auto" }}>
-                {historialFiltrado.length === 0 && (
-                  <div style={{ color: "#444", fontSize: 12, textAlign: "center", padding: 20 }}>No hay movimientos con ese filtro</div>
-                )}
+                {historialFiltrado.length === 0 && <div style={{ color: "#444", fontSize: 12, textAlign: "center", padding: 20 }}>No hay movimientos con ese filtro</div>}
                 {historialFiltrado.map((h, i) => (
                   <div key={i} style={{ background: "#0a0a0a", borderRadius: 10, padding: "10px 12px", border: "1px solid " + (h.esIngreso ? "#0d3321" : "#2d0a0a"), display: "flex", gap: 10, alignItems: "flex-start" }}>
                     <div style={{ fontSize: 18, flexShrink: 0, marginTop: 2 }}>{h.esIngreso ? "↑" : "↓"}</div>
@@ -842,22 +754,18 @@ export default function AdminMobileCompleto() {
                         <span style={{ fontSize: 10, color: "#555" }}>{h.cuenta}</span>
                         <span style={{ fontSize: 10, color: "#444" }}>•</span>
                         <span style={{ fontSize: 10, color: "#444" }}>{h.fecha?.substring(0, 10)}</span>
-                        {h.comprobanteUrl && (
-                          <a href={h.comprobanteUrl} target="_blank" rel="noreferrer" style={{ fontSize: 10, color: "#ff2d78", textDecoration: "none" }}>📎 Ver</a>
-                        )}
+                        {h.comprobanteUrl && <a href={h.comprobanteUrl} target="_blank" rel="noreferrer" style={{ fontSize: 10, color: "#ff2d78", textDecoration: "none" }}>📎 Ver</a>}
                       </div>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
-
           </div>
         )}
 
       </div>
 
-      {/* MODAL EDITAR PRODUCTO */}
       {editando && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.95)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 200 }}>
           <div style={{ background: "#111", width: "100%", maxWidth: 420, borderRadius: 20, padding: 20, maxHeight: "90vh", overflowY: "auto", border: "1px solid #ff2d78" }}>
@@ -895,14 +803,8 @@ export default function AdminMobileCompleto() {
   );
 }
 
-// ─── Componente auxiliar TarjetaProducto ─────────────────────────────────────
 function TarjetaProducto({ p, onVer, onEditar, onEliminar, onToggleActivo, onStock }: {
-  p: Producto;
-  onVer: () => void;
-  onEditar: () => void;
-  onEliminar: () => void;
-  onToggleActivo: () => void;
-  onStock: (cambio: number) => void;
+  p: Producto; onVer: () => void; onEditar: () => void; onEliminar: () => void; onToggleActivo: () => void; onStock: (cambio: number) => void;
 }) {
   return (
     <div style={{ background: "#111", borderRadius: 12, padding: 12, display: "flex", gap: 12, alignItems: "center", border: "1px solid #222" }}>
