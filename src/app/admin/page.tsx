@@ -26,6 +26,10 @@ type ElementoHistorial = {
   fecha: string; entidad: string; concepto: string; monto: number;
   cuenta: string; esIngreso: boolean; comprobanteUrl?: string;
 };
+type PagoParcial = {
+  id: number; pedido_id: number; cliente_nombre: string;
+  monto: number; comprobante_url?: string; cuenta: string; creado_en: string;
+};
 
 const CLAVE = "carito2026";
 const neon = { color: "#ff2d78", textShadow: "0 0 10px #ff2d78" };
@@ -102,6 +106,13 @@ export default function AdminMobileCompleto() {
   const [nuevoSaldoDeuda, setNuevoSaldoDeuda] = useState("");
   const [vistaProductoCompleto, setVistaProductoCompleto] = useState<Producto | null>(null);
 
+  // PAGO PARCIAL
+  const [pagoParcialModal, setPagoParcialModal] = useState<Pedido | null>(null);
+  const [montoPagoParcial, setMontoPagoParcial] = useState("");
+  const [cuentaPagoParcial, setCuentaPagoParcial] = useState("Efectivo");
+  const [comprobantePagoParcial, setComprobantePagoParcial] = useState("");
+  const [subiendoComprobantePago, setSubiendoComprobantePago] = useState(false);
+
   useEffect(() => { if (logueado) cargarTodo(); }, [logueado]);
 
   const cargarTodo = async () => {
@@ -110,6 +121,7 @@ export default function AdminMobileCompleto() {
     const { data: catData } = await supabase.from("categorias").select("*").order("Nombre", { ascending: true });
     const { data: pData } = await supabase.from("pedidos").select("*").order("creado_en", { ascending: false });
     const { data: gData } = await supabase.from("gastos_distribuidoras").select("*").order("creado_en", { ascending: false });
+    const { data: ppData } = await supabase.from("pagos_parciales").select("*").order("creado_en", { ascending: false });
 
     if (prodData) {
       setProductos(prodData);
@@ -131,6 +143,7 @@ export default function AdminMobileCompleto() {
 
     const listaGastos: Gasto[] = gData || [];
     setGastos(listaGastos);
+    const listaPagosParciales: PagoParcial[] = ppData || [];
 
     let totalAlias = 0, totalBrubank = 0, totalEfectivo = 0;
     const pool: ElementoHistorial[] = [];
@@ -151,6 +164,22 @@ export default function AdminMobileCompleto() {
           esIngreso: true,
         });
       }
+    });
+
+    listaPagosParciales.forEach(pp => {
+      const tag = normalizarCuenta(pp.cuenta);
+      if (tag === "alias") totalAlias += pp.monto;
+      else if (tag === "brubank") totalBrubank += pp.monto;
+      else if (tag === "efectivo") totalEfectivo += pp.monto;
+      pool.push({
+        fecha: pp.creado_en,
+        entidad: pp.cliente_nombre,
+        concepto: "Pago parcial",
+        monto: pp.monto,
+        cuenta: tag === "alias" ? "📱 Alias" : tag === "brubank" ? "👩 Brubank" : "💵 Efectivo",
+        esIngreso: true,
+        comprobanteUrl: pp.comprobante_url,
+      });
     });
 
     listaGastos.forEach(g => {
@@ -283,6 +312,47 @@ export default function AdminMobileCompleto() {
     cargarTodo();
   };
 
+  const subirComprobantePago = async (file: File) => {
+    setSubiendoComprobantePago(true);
+    const nombreFile = "pago-" + Date.now() + "-" + file.name;
+    await supabase.storage.from("productos").upload(nombreFile, file);
+    const { data } = supabase.storage.from("productos").getPublicUrl(nombreFile);
+    setComprobantePagoParcial(data.publicUrl);
+    setSubiendoComprobantePago(false);
+    mostrarToast("Comprobante adjuntado");
+  };
+
+  const registrarPagoParcial = async () => {
+    if (!pagoParcialModal || !montoPagoParcial) { mostrarToast("Ingresá el monto"); return; }
+    const monto = parseInt(montoPagoParcial);
+    if (isNaN(monto) || monto <= 0) { mostrarToast("Monto inválido"); return; }
+    const deudaActual = pagoParcialModal.total - (pagoParcialModal.anticipo || 0);
+    if (monto > deudaActual) { mostrarToast("El monto supera la deuda"); return; }
+
+    const nuevoAnticipo = (pagoParcialModal.anticipo || 0) + monto;
+    const nuevoEstado = nuevoAnticipo >= pagoParcialModal.total ? "pagado" : "pendiente_pago";
+
+    await supabase.from("pedidos").update({
+      anticipo: nuevoAnticipo,
+      estado_pago: nuevoEstado,
+    }).eq("id", pagoParcialModal.id);
+
+    await supabase.from("pagos_parciales").insert({
+      pedido_id: pagoParcialModal.id,
+      cliente_nombre: pagoParcialModal.cliente_nombre,
+      monto,
+      cuenta: cuentaPagoParcial,
+      comprobante_url: comprobantePagoParcial || null,
+    });
+
+    mostrarToast("Pago registrado ✓");
+    setPagoParcialModal(null);
+    setMontoPagoParcial("");
+    setCuentaPagoParcial("Efectivo");
+    setComprobantePagoParcial("");
+    cargarTodo();
+  };
+
   const ejecutarCargaVentaManual = async () => {
     if (!ventaManual.cliente || !ventaManual.productoId) { mostrarToast("Asigná cliente y producto"); return; }
     const prodSel = productos.find(p => p.id === parseInt(ventaManual.productoId));
@@ -309,12 +379,8 @@ export default function AdminMobileCompleto() {
         const entregado = parseInt(ventaManual.montoEntregado);
         if (!isNaN(entregado)) {
           anticipo = entregado;
-          if (entregado >= precioBase) {
-            anticipo = precioBase;
-            estadoPago = "pagado";
-          } else {
-            estadoPago = "pendiente_pago";
-          }
+          if (entregado >= precioBase) { anticipo = precioBase; estadoPago = "pagado"; }
+          else estadoPago = "pendiente_pago";
         }
       }
     }
@@ -378,7 +444,6 @@ export default function AdminMobileCompleto() {
     return pasaCuenta && pasaTipo;
   });
   const totalHistorialFiltrado = historialFiltrado.reduce((acc, h) => h.esIngreso ? acc + h.monto : acc - h.monto, 0);
-
   const deudores = pedidos.filter(p => {
     const deuda = p.total - (p.anticipo || 0);
     return deuda > 0 && !(p.aprobado && p.estado_pago === "pagado" && p.estado_entrega === "entregado");
@@ -404,6 +469,54 @@ export default function AdminMobileCompleto() {
       {toast && (
         <div style={{ position: "fixed", bottom: 20, left: "50%", transform: "translateX(-50%)", background: "#ff2d78", color: "#fff", padding: "10px 20px", borderRadius: 10, fontWeight: 700, zIndex: 9999, fontSize: 13 }}>
           {toast}
+        </div>
+      )}
+
+      {/* MODAL PAGO PARCIAL */}
+      {pagoParcialModal && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div onClick={() => setPagoParcialModal(null)} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.85)" }} />
+          <div style={{ position: "relative", background: "#111", border: "2px solid #10B981", borderRadius: 20, padding: 24, width: "100%", maxWidth: 380 }}>
+            <h3 style={{ color: "#10B981", fontWeight: 900, fontSize: 17, marginBottom: 6 }}>💰 Registrar Pago</h3>
+            <p style={{ color: "#aaa", fontSize: 13, marginBottom: 4 }}>{pagoParcialModal.cliente_nombre}</p>
+            <p style={{ color: "#F59E0B", fontSize: 13, marginBottom: 16 }}>
+              Deuda actual: {fmt(pagoParcialModal.total - (pagoParcialModal.anticipo || 0))}
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div>
+                <div style={{ color: "#888", fontSize: 11, marginBottom: 4 }}>Monto que paga ahora ($)</div>
+                <input value={montoPagoParcial} onChange={e => setMontoPagoParcial(e.target.value)}
+                  placeholder="Ej: 40000" type="number"
+                  style={{ ...inputStyle, border: "1px solid #10B981" }} />
+              </div>
+              <div>
+                <div style={{ color: "#888", fontSize: 11, marginBottom: 4 }}>Cuenta donde ingresa</div>
+                <select value={cuentaPagoParcial} onChange={e => setCuentaPagoParcial(e.target.value)} style={inputStyle}>
+                  <option value="Efectivo">💵 Efectivo</option>
+                  <option value="Alias: carito.shop">📱 Alias carito.shop</option>
+                  <option value="Brubank Señora (DIARIO.ITALIA.ARENA)">👩 Brubank Señora</option>
+                </select>
+              </div>
+              <div>
+                <div style={{ color: "#888", fontSize: 11, marginBottom: 4 }}>📎 Adjuntar comprobante (opcional)</div>
+                <input type="file" accept="image/*"
+                  onChange={e => e.target.files?.[0] && subirComprobantePago(e.target.files[0])}
+                  style={{ color: "#aaa", fontSize: 11 }} />
+                {subiendoComprobantePago && <div style={{ color: "#ff2d78", fontSize: 11, marginTop: 4 }}>Subiendo...</div>}
+                {comprobantePagoParcial && <div style={{ color: "#10B981", fontSize: 11, marginTop: 4 }}>✅ Comprobante listo</div>}
+              </div>
+              <div style={{ display: "flex", gap: 10, marginTop: 6 }}>
+                <button onClick={() => { setPagoParcialModal(null); setMontoPagoParcial(""); setComprobantePagoParcial(""); }}
+                  style={{ flex: 1, padding: 12, background: "#222", border: "none", borderRadius: 12, color: "#fff", fontWeight: 700, cursor: "pointer" }}>
+                  Cancelar
+                </button>
+                <button onClick={registrarPagoParcial}
+                  style={{ flex: 2, padding: 12, background: "linear-gradient(135deg, #10B981, #059669)", border: "none", borderRadius: 12, color: "#fff", fontWeight: 800, cursor: "pointer" }}>
+                  Confirmar Pago
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -645,6 +758,12 @@ export default function AdminMobileCompleto() {
                       ✅ Confirmar Entrega
                     </button>
                   )}
+                  {deuda > 0 && (
+                    <button onClick={() => { setPagoParcialModal(pedido); setMontoPagoParcial(""); setComprobantePagoParcial(""); }}
+                      style={{ width: "100%", marginTop: 8, padding: 10, background: "linear-gradient(135deg, #10B981, #059669)", border: "none", borderRadius: 10, color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+                      💰 Registrar Pago Parcial
+                    </button>
+                  )}
                   {editandoDeudaId === pedido.id ? (
                     <div style={{ marginTop: 8, display: "flex", gap: 6 }}>
                       <input value={nuevoSaldoDeuda} onChange={e => setNuevoSaldoDeuda(e.target.value)} placeholder="Nueva deuda" type="number" style={{ ...inputStyle, flex: 1, padding: 8 }} />
@@ -665,9 +784,7 @@ export default function AdminMobileCompleto() {
 
             <div style={{ background: "#111", border: "1px solid #F59E0B", borderRadius: 16, padding: 16 }}>
               <h3 style={{ color: "#F59E0B", margin: "0 0 14px 0", fontSize: 15 }}>💳 Saldos por Cobrar</h3>
-              {deudores.length === 0 && (
-                <div style={{ color: "#444", fontSize: 12, textAlign: "center", padding: 10 }}>No hay deudas pendientes 🎉</div>
-              )}
+              {deudores.length === 0 && <div style={{ color: "#444", fontSize: 12, textAlign: "center", padding: 10 }}>No hay deudas pendientes 🎉</div>}
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {deudores.map(p => {
                   const deuda = p.total - (p.anticipo || 0);
