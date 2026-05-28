@@ -48,7 +48,7 @@ const buttonStyle = {
   fontWeight: 800, fontSize: 14, cursor: "pointer",
 } as const;
 
-const normalizarCuenta = (str: string): "alias" | "brubank" | "efectivo" | string => {
+const normalizarCuenta = (str: string): string => {
   if (!str) return "";
   const s = str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
     .replace(/[💵📱👩]/g, "").replace("caja:", "").replace("transferencia:", "").trim();
@@ -91,7 +91,6 @@ export default function AdminMobileCompleto() {
   const [subiendo, setSubiendo] = useState(false);
   const [coincidenciasAlta, setCoincidenciasAlta] = useState<Producto[]>([]);
 
-  // CARRITO DE VENTA MANUAL
   const [ventaCliente, setVentaCliente] = useState({ nombre: "", telefono: "", direccion: "" });
   const [sugerenciasCliente, setSugerenciasCliente] = useState<{nombre: string; telefono: string; direccion: string}[]>([]);
   const [mostrarSugerencias, setMostrarSugerencias] = useState(false);
@@ -165,8 +164,6 @@ export default function AdminMobileCompleto() {
         if (tag === "alias") totalAlias += montoEfectivo;
         else if (tag === "brubank") totalBrubank += montoEfectivo;
         else if (tag === "efectivo") totalEfectivo += montoEfectivo;
-      }
-      if (montoEfectivo > 0) {
         pool.push({
           fecha: p.creado_en, entidad: p.cliente_nombre, concepto: p.productos,
           monto: montoEfectivo,
@@ -211,19 +208,15 @@ export default function AdminMobileCompleto() {
   const login = () => { if (clave === CLAVE) setLogueado(true); else setErrorLogin("Clave incorrecta"); };
 
   const toggleActivo = async (id: number, activo: boolean) => {
-    await supabase.from("productos").update({ activo: !activo }).eq("id", id);
-    cargarTodo();
+    await supabase.from("productos").update({ activo: !activo }).eq("id", id); cargarTodo();
   };
   const actualizarStock = async (id: number, stockActual: number, cambio: number) => {
-    await supabase.from("productos").update({ stock: Math.max(0, stockActual + cambio) }).eq("id", id);
-    cargarTodo();
+    await supabase.from("productos").update({ stock: Math.max(0, stockActual + cambio) }).eq("id", id); cargarTodo();
   };
   const eliminarProducto = async (id: number) => {
     await supabase.from("productos").delete().eq("id", id);
-    setConfirmarEliminar(null);
-    setVistaProductoCompleto(null);
-    mostrarToast("Producto eliminado");
-    cargarTodo();
+    setConfirmarEliminar(null); setVistaProductoCompleto(null);
+    mostrarToast("Producto eliminado"); cargarTodo();
   };
   const guardarEdicion = async () => {
     if (!editando) return;
@@ -233,9 +226,7 @@ export default function AdminMobileCompleto() {
       imagen2: editando.imagen2, imagen3: editando.imagen3,
       categoria: editando.categoria, stock: editando.stock,
     }).eq("id", editando.id);
-    setEditando(null);
-    mostrarToast("Producto actualizado");
-    cargarTodo();
+    setEditando(null); mostrarToast("Producto actualizado"); cargarTodo();
   };
 
   const subirFoto = async (file: File, campo: string) => {
@@ -245,8 +236,7 @@ export default function AdminMobileCompleto() {
     const { data } = supabase.storage.from("productos").getPublicUrl(nombre);
     if (editando) setEditando(prev => prev ? { ...prev, [campo]: data.publicUrl } : null);
     else setNuevo(prev => ({ ...prev, [campo]: data.publicUrl }));
-    setSubiendo(false);
-    mostrarToast("Foto subida");
+    setSubiendo(false); mostrarToast("Foto subida");
   };
 
   const agregar = async () => {
@@ -259,9 +249,7 @@ export default function AdminMobileCompleto() {
     });
     mostrarToast("Producto publicado");
     setNuevo({ nombre: "", descripcion: "", precio: "", precio_oferta: "", oferta_hasta: "", emoji: "🛍️", imagen: "", imagen2: "", imagen3: "", categoria: listadoCategorias[0]?.Nombre || "", stock: "0" });
-    setCoincidenciasAlta([]);
-    setPestana("catalogo");
-    cargarTodo();
+    setCoincidenciasAlta([]); setPestana("catalogo"); cargarTodo();
   };
 
   const ejecutarCrearCategoria = async () => {
@@ -285,8 +273,7 @@ export default function AdminMobileCompleto() {
     } else {
       setCarritoVenta(prev => [...prev, { productoId: prod.id, nombre: prod.nombre, precio, cantidad }]);
     }
-    setProductoSeleccionado("");
-    setCantidadSeleccionada("1");
+    setProductoSeleccionado(""); setCantidadSeleccionada("1");
     mostrarToast("Producto agregado al pedido");
   };
 
@@ -303,22 +290,20 @@ export default function AdminMobileCompleto() {
     const total = totalCarritoVenta;
     let anticipo = 0, estadoPago = "pendiente_pago", esFinanciado = false;
     let cuotasTotales = 1, cuotasPagadas = 1, montoCuota = 0;
-    let cuentaAsignada = tipoPagoVenta === "Cuotas" ? "Efectivo" : tipoPagoVenta;
+    const cuentaAsignada = tipoPagoVenta === "Cuotas" ? "Efectivo" : tipoPagoVenta;
     if (tipoPagoVenta === "Cuotas") {
       esFinanciado = true; cuotasTotales = 3; cuotasPagadas = 1;
       const c1 = total / 3;
       anticipo = Math.ceil(c1 / 1000) * 1000;
       montoCuota = Math.ceil((c1 * 1.10) / 1000) * 1000;
-      estadoPago = "pendiente_pago";
     } else {
       if (montoEntregadoVenta === "" || montoEntregadoVenta === "0") {
-        anticipo = 0; estadoPago = "pendiente_pago";
+        anticipo = 0;
       } else {
         const entregado = parseInt(montoEntregadoVenta);
         if (!isNaN(entregado)) {
           anticipo = entregado;
           if (entregado >= total) { anticipo = total; estadoPago = "pagado"; }
-          else estadoPago = "pendiente_pago";
         }
       }
     }
@@ -340,8 +325,7 @@ export default function AdminMobileCompleto() {
   const cambiarEstadoPago = async (id: number, nuevoEstado: string) => {
     const updates: Record<string, unknown> = { estado_pago: nuevoEstado };
     if (nuevoEstado === "pagado") { const p = pedidos.find(o => o.id === id); if (p) updates.anticipo = p.total; }
-    await supabase.from("pedidos").update(updates).eq("id", id);
-    cargarTodo();
+    await supabase.from("pedidos").update(updates).eq("id", id); cargarTodo();
   };
   const cambiarEstadoEntrega = async (id: number, nuevoEstado: string) => {
     await supabase.from("pedidos").update({ estado_entrega: nuevoEstado }).eq("id", id); cargarTodo();
@@ -382,8 +366,7 @@ export default function AdminMobileCompleto() {
     await supabase.storage.from("productos").upload(nombreFile, file);
     const { data } = supabase.storage.from("productos").getPublicUrl(nombreFile);
     setComprobantePagoParcial(data.publicUrl);
-    setSubiendoComprobantePago(false);
-    mostrarToast("Comprobante adjuntado");
+    setSubiendoComprobantePago(false); mostrarToast("Comprobante adjuntado");
   };
 
   const registrarPagoParcial = async () => {
@@ -762,87 +745,117 @@ export default function AdminMobileCompleto() {
               </select>
             </div>
             {pedidosActivos.length === 0 && <div style={{ color: "#444", textAlign: "center", padding: 30 }}>No hay órdenes activas</div>}
-            {pedidosActivos.map(pedido => {
-              const deuda = pedido.total - (pedido.anticipo || 0);
-              return (
-                <div key={pedido.id} style={{ background: "#111", borderRadius: 14, padding: 14, marginBottom: 10, border: "1px solid #222" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                    <span style={{ fontWeight: 700, fontSize: 14 }}>{pedido.cliente_nombre}</span>
-                    <span style={{ fontSize: 11, color: "#555" }}>{pedido.creado_en?.substring(0, 10)}</span>
-                  </div>
-                  <div style={{ fontSize: 12, color: "#aaa", marginBottom: 6 }}>{pedido.productos}</div>
-                  <div style={{ fontSize: 13, color: "#ff2d78", fontWeight: 700, marginBottom: 6 }}>Total: {fmt(pedido.total)}</div>
-                  {deuda > 0 && <div style={{ fontSize: 12, color: "#F59E0B", marginBottom: 6 }}>⚠️ Debe: {fmt(deuda)}</div>}
-                  {pedido.es_dropshipping && <div style={{ fontSize: 11, color: "#8B5CF6", marginBottom: 6 }}>🚚 Dropshipping</div>}
-
-                  {editandoClienteId === pedido.id ? (
-                    <div style={{ background: "#0a0a0a", borderRadius: 10, padding: 10, marginBottom: 8, border: "1px solid #ff2d78", display: "flex", flexDirection: "column", gap: 8 }}>
-                      <input value={editandoClienteData.nombre} onChange={e => setEditandoClienteData(p => ({ ...p, nombre: e.target.value }))} placeholder="Nombre" style={{ ...inputStyle, padding: 8, fontSize: 12 }} />
-                      <input value={editandoClienteData.telefono} onChange={e => setEditandoClienteData(p => ({ ...p, telefono: e.target.value }))} placeholder="Teléfono" style={{ ...inputStyle, padding: 8, fontSize: 12 }} />
-                      <input value={editandoClienteData.direccion} onChange={e => setEditandoClienteData(p => ({ ...p, direccion: e.target.value }))} placeholder="Dirección" style={{ ...inputStyle, padding: 8, fontSize: 12 }} />
-                      <div style={{ display: "flex", gap: 8 }}>
-                        <button onClick={async () => {
-                          await supabase.from("pedidos").update({ cliente_nombre: editandoClienteData.nombre, cliente_telefono: editandoClienteData.telefono, cliente_direccion: editandoClienteData.direccion }).eq("id", pedido.id);
-                          setEditandoClienteId(null); mostrarToast("Cliente actualizado"); cargarTodo();
-                        }} style={{ flex: 2, padding: 8, background: "#ff2d78", border: "none", borderRadius: 8, color: "#fff", fontWeight: 700, cursor: "pointer", fontSize: 12 }}>💾 Guardar</button>
-                        <button onClick={() => setEditandoClienteId(null)} style={{ flex: 1, padding: 8, background: "#333", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontSize: 12 }}>✕</button>
+            {(() => {
+              const clientesAgrupados = Array.from(new Map(pedidosActivos.map(p => [p.cliente_nombre, p])).keys());
+              return clientesAgrupados.map(nombreCliente => {
+                const pedidosCliente = pedidosActivos.filter(p => p.cliente_nombre === nombreCliente);
+                const deudaTotalCliente = pedidosCliente.reduce((acc, p) => acc + Math.max(0, p.total - (p.anticipo || 0)), 0);
+                const primerPedido = pedidosCliente[0];
+                return (
+                  <div key={nombreCliente} style={{ background: "#111", borderRadius: 16, marginBottom: 14, border: deudaTotalCliente > 0 ? "1px solid #F59E0B" : "1px solid #222", overflow: "hidden" }}>
+                    <div style={{ background: "#0a0a0a", padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #222" }}>
+                      <div>
+                        <div style={{ fontWeight: 900, fontSize: 15, color: "#fff" }}>👤 {nombreCliente}</div>
+                        {primerPedido.cliente_telefono && <div style={{ fontSize: 11, color: "#555", marginTop: 2 }}>📞 {primerPedido.cliente_telefono}</div>}
                       </div>
+                      {deudaTotalCliente > 0 && (
+                        <div style={{ textAlign: "right" }}>
+                          <div style={{ fontSize: 10, color: "#888" }}>Deuda total</div>
+                          <div style={{ fontSize: 16, fontWeight: 900, color: "#F59E0B" }}>{fmt(deudaTotalCliente)}</div>
+                        </div>
+                      )}
                     </div>
-                  ) : (
-                    <button onClick={() => { setEditandoClienteId(pedido.id); setEditandoClienteData({ nombre: pedido.cliente_nombre, telefono: pedido.cliente_telefono, direccion: pedido.cliente_direccion }); }}
-                      style={{ marginBottom: 6, padding: "5px 10px", background: "#1a1a1a", border: "1px solid #444", borderRadius: 8, color: "#aaa", fontSize: 11, cursor: "pointer" }}>
-                      ✏️ Editar datos cliente
-                    </button>
-                  )}
 
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
-                    <select value={pedido.estado_pago} onChange={e => cambiarEstadoPago(pedido.id, e.target.value)} style={{ ...inputStyle, width: "auto", padding: "6px 8px", fontSize: 11 }}>
-                      <option value="pagado">✅ Pagado</option>
-                      <option value="pendiente_pago">⏳ Pendiente</option>
-                    </select>
-                    <select value={pedido.estado_entrega} onChange={e => cambiarEstadoEntrega(pedido.id, e.target.value)} style={{ ...inputStyle, width: "auto", padding: "6px 8px", fontSize: 11 }}>
-                      <option value="pendiente_entrega">📦 Pendiente</option>
-                      <option value="entregado">✅ Entregado</option>
-                    </select>
-                    <select value={pedido.cuenta_ingreso} onChange={e => cambiarCuentaIngreso(pedido.id, e.target.value)} style={{ ...inputStyle, width: "auto", padding: "6px 8px", fontSize: 11 }}>
-                      <option value="Efectivo">💵 Efectivo</option>
-                      <option value="Alias: carito.shop">📱 Alias</option>
-                      <option value="Brubank Señora (DIARIO.ITALIA.ARENA)">👩 Brubank</option>
-                    </select>
+                    {pedidosCliente.map(pedido => {
+                      const deuda = pedido.total - (pedido.anticipo || 0);
+                      return (
+                        <div key={pedido.id} style={{ padding: 14, borderBottom: "1px solid #1a1a1a" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                            <span style={{ fontSize: 11, color: "#555" }}>📅 {pedido.creado_en?.substring(0, 10)}</span>
+                            {pedido.es_dropshipping && <span style={{ fontSize: 10, color: "#8B5CF6" }}>🚚 Dropshipping</span>}
+                          </div>
+                          <div style={{ fontSize: 12, color: "#aaa", marginBottom: 6 }}>{pedido.productos}</div>
+                          <div style={{ fontSize: 13, color: "#ff2d78", fontWeight: 700, marginBottom: 4 }}>Total: {fmt(pedido.total)}</div>
+                          {deuda > 0 && <div style={{ fontSize: 12, color: "#F59E0B", marginBottom: 6 }}>⚠️ Debe: {fmt(deuda)}</div>}
+
+                          {editandoClienteId === pedido.id ? (
+                            <div style={{ background: "#0a0a0a", borderRadius: 10, padding: 10, marginBottom: 8, border: "1px solid #ff2d78", display: "flex", flexDirection: "column", gap: 8 }}>
+                              <input value={editandoClienteData.nombre} onChange={e => setEditandoClienteData(p => ({ ...p, nombre: e.target.value }))} placeholder="Nombre" style={{ ...inputStyle, padding: 8, fontSize: 12 }} />
+                              <input value={editandoClienteData.telefono} onChange={e => setEditandoClienteData(p => ({ ...p, telefono: e.target.value }))} placeholder="Teléfono" style={{ ...inputStyle, padding: 8, fontSize: 12 }} />
+                              <input value={editandoClienteData.direccion} onChange={e => setEditandoClienteData(p => ({ ...p, direccion: e.target.value }))} placeholder="Dirección" style={{ ...inputStyle, padding: 8, fontSize: 12 }} />
+                              <div style={{ display: "flex", gap: 8 }}>
+                                <button onClick={async () => {
+                                  await supabase.from("pedidos").update({ cliente_nombre: editandoClienteData.nombre, cliente_telefono: editandoClienteData.telefono, cliente_direccion: editandoClienteData.direccion }).eq("id", pedido.id);
+                                  setEditandoClienteId(null); mostrarToast("Cliente actualizado"); cargarTodo();
+                                }} style={{ flex: 2, padding: 8, background: "#ff2d78", border: "none", borderRadius: 8, color: "#fff", fontWeight: 700, cursor: "pointer", fontSize: 12 }}>💾 Guardar</button>
+                                <button onClick={() => setEditandoClienteId(null)} style={{ flex: 1, padding: 8, background: "#333", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontSize: 12 }}>✕</button>
+                              </div>
+                            </div>
+                          ) : (
+                            <button onClick={() => { setEditandoClienteId(pedido.id); setEditandoClienteData({ nombre: pedido.cliente_nombre, telefono: pedido.cliente_telefono, direccion: pedido.cliente_direccion }); }}
+                              style={{ marginBottom: 6, padding: "5px 10px", background: "#1a1a1a", border: "1px solid #444", borderRadius: 8, color: "#aaa", fontSize: 11, cursor: "pointer" }}>
+                              ✏️ Editar datos cliente
+                            </button>
+                          )}
+
+                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+                            <select value={pedido.estado_pago} onChange={e => cambiarEstadoPago(pedido.id, e.target.value)} style={{ ...inputStyle, width: "auto", padding: "6px 8px", fontSize: 11 }}>
+                              <option value="pagado">✅ Pagado</option>
+                              <option value="pendiente_pago">⏳ Pendiente</option>
+                            </select>
+                            <select value={pedido.estado_entrega} onChange={e => cambiarEstadoEntrega(pedido.id, e.target.value)} style={{ ...inputStyle, width: "auto", padding: "6px 8px", fontSize: 11 }}>
+                              <option value="pendiente_entrega">📦 Pendiente</option>
+                              <option value="entregado">✅ Entregado</option>
+                            </select>
+                            <select value={pedido.cuenta_ingreso} onChange={e => cambiarCuentaIngreso(pedido.id, e.target.value)} style={{ ...inputStyle, width: "auto", padding: "6px 8px", fontSize: 11 }}>
+                              <option value="Efectivo">💵 Efectivo</option>
+                              <option value="Alias: carito.shop">📱 Alias</option>
+                              <option value="Brubank Señora (DIARIO.ITALIA.ARENA)">👩 Brubank</option>
+                            </select>
+                          </div>
+                          {!pedido.aprobado && (
+                            <button onClick={() => ejecutarConfirmacionEntregaReal(pedido)} style={{ ...buttonStyle, marginTop: 8, fontSize: 12, padding: 10 }}>
+                              ✅ Confirmar Entrega
+                            </button>
+                          )}
+                          {deuda > 0 && (
+                            <button onClick={() => { setPagoParcialModal(pedido); setMontoPagoParcial(""); setComprobantePagoParcial(""); }}
+                              style={{ width: "100%", marginTop: 8, padding: 10, background: "linear-gradient(135deg, #10B981, #059669)", border: "none", borderRadius: 10, color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+                              💰 Registrar Pago Parcial
+                            </button>
+                          )}
+                          {editandoDeudaId === pedido.id ? (
+                            <div style={{ marginTop: 8, display: "flex", gap: 6 }}>
+                              <input value={nuevoSaldoDeuda} onChange={e => setNuevoSaldoDeuda(e.target.value)} placeholder="Nueva deuda" type="number" style={{ ...inputStyle, flex: 1, padding: 8 }} />
+                              <button onClick={() => guardarModificacionDeudaManual(pedido.id, pedido.total)} style={{ padding: "0 12px", background: "#ff2d78", border: "none", borderRadius: 8, color: "#fff", fontWeight: 700, cursor: "pointer" }}>OK</button>
+                              <button onClick={() => setEditandoDeudaId(null)} style={{ padding: "0 10px", background: "#333", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer" }}>✕</button>
+                            </div>
+                          ) : (
+                            deuda > 0 && <button onClick={() => { setEditandoDeudaId(pedido.id); setNuevoSaldoDeuda(String(deuda)); }} style={{ marginTop: 6, padding: "6px 12px", background: "#1a1a1a", border: "1px solid #F59E0B", borderRadius: 8, color: "#F59E0B", fontSize: 11, cursor: "pointer" }}>✏️ Editar deuda</button>
+                          )}
+                        </div>
+                      );
+                    })}
+
+                    {deudaTotalCliente > 0 && (
+                      <div style={{ padding: "10px 14px", background: "#0a0a0a" }}>
+                        <button onClick={() => {
+                          const productosTexto = pedidosCliente.map(p => {
+                            const d = p.total - (p.anticipo || 0);
+                            const estado = p.estado_entrega === "entregado" ? "✅" : "📦";
+                            return `${estado} ${p.productos} — ${fmt(p.total)}${d > 0 ? ` (Debe: ${fmt(d)})` : " (Pagado)"}`;
+                          }).join("\n");
+                          const msg = `📦 *CARITO.SHOP*\n━━━━━━━━━━━━━━\nHola ${nombreCliente} 👋\n\nTe recordamos que tenés saldos pendientes:\n\n${productosTexto}\n\n⚠️ *Deuda total: ${fmt(deudaTotalCliente)}*\n\nPor favor realizá la transferencia a:\n📱 Alias: carito.shop\n\n¡Muchas gracias! 🌸\n━━━━━━━━━━━━━━\nCARITO.SHOP - Tu tienda favorita`;
+                          window.open("https://wa.me/?text=" + encodeURIComponent(msg), "_blank");
+                        }} style={{ width: "100%", padding: 10, background: "transparent", border: "1px solid #25D366", borderRadius: 10, color: "#25D366", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+                          📲 Recordatorio completo por WhatsApp
+                        </button>
+                      </div>
+                    )}
                   </div>
-                  {!pedido.aprobado && (
-                    <button onClick={() => ejecutarConfirmacionEntregaReal(pedido)} style={{ ...buttonStyle, marginTop: 8, fontSize: 12, padding: 10 }}>
-                      ✅ Confirmar Entrega
-                    </button>
-                  )}
-                  {deuda > 0 && (
-                    <button onClick={() => { setPagoParcialModal(pedido); setMontoPagoParcial(""); setComprobantePagoParcial(""); }}
-                      style={{ width: "100%", marginTop: 8, padding: 10, background: "linear-gradient(135deg, #10B981, #059669)", border: "none", borderRadius: 10, color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
-                      💰 Registrar Pago Parcial
-                    </button>
-                  )}
-                  {deuda > 0 && (
-                    <button onClick={() => {
-                      const estadoEntrega = pedido.estado_entrega === "entregado" ? "Entregado ✅" : "Pendiente de entrega 📦";
-                      const pagado = pedido.anticipo || 0;
-                      const msg = `📦 *CARITO.SHOP*\n━━━━━━━━━━━━━━\nHola ${pedido.cliente_nombre} 👋\n\nTe recordamos que tenés un saldo pendiente:\n\n🛍️ Producto: ${pedido.productos}\n📬 Estado del pedido: ${estadoEntrega}\n💰 Total: ${fmt(pedido.total)}\n✅ Pagado: ${fmt(pagado)}\n⚠️ Saldo pendiente: ${fmt(deuda)}\n\nPor favor realizá la transferencia a:\n📱 Alias: carito.shop\n\n¡Muchas gracias! 🌸\n━━━━━━━━━━━━━━\nCARITO.SHOP - Tu tienda favorita`;
-                      window.open("https://wa.me/?text=" + encodeURIComponent(msg), "_blank");
-                    }} style={{ width: "100%", marginTop: 6, padding: 10, background: "transparent", border: "1px solid #25D366", borderRadius: 10, color: "#25D366", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
-                      📲 Recordatorio de deuda por WhatsApp
-                    </button>
-                  )}
-                  {editandoDeudaId === pedido.id ? (
-                    <div style={{ marginTop: 8, display: "flex", gap: 6 }}>
-                      <input value={nuevoSaldoDeuda} onChange={e => setNuevoSaldoDeuda(e.target.value)} placeholder="Nueva deuda" type="number" style={{ ...inputStyle, flex: 1, padding: 8 }} />
-                      <button onClick={() => guardarModificacionDeudaManual(pedido.id, pedido.total)} style={{ padding: "0 12px", background: "#ff2d78", border: "none", borderRadius: 8, color: "#fff", fontWeight: 700, cursor: "pointer" }}>OK</button>
-                      <button onClick={() => setEditandoDeudaId(null)} style={{ padding: "0 10px", background: "#333", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer" }}>✕</button>
-                    </div>
-                  ) : (
-                    deuda > 0 && <button onClick={() => { setEditandoDeudaId(pedido.id); setNuevoSaldoDeuda(String(deuda)); }} style={{ marginTop: 6, padding: "6px 12px", background: "#1a1a1a", border: "1px solid #F59E0B", borderRadius: 8, color: "#F59E0B", fontSize: 11, cursor: "pointer" }}>✏️ Editar deuda</button>
-                  )}
-                </div>
-              );
-            })}
+                );
+              });
+            })()}
           </div>
         )}
 
@@ -852,19 +865,19 @@ export default function AdminMobileCompleto() {
               <h3 style={{ color: "#F59E0B", margin: "0 0 14px 0", fontSize: 15 }}>💳 Saldos por Cobrar</h3>
               {deudores.length === 0 && <div style={{ color: "#444", fontSize: 12, textAlign: "center", padding: 10 }}>No hay deudas pendientes 🎉</div>}
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {deudores.map(p => {
-                  const deuda = p.total - (p.anticipo || 0);
-                  return (
-                    <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", background: "#0a0a0a", borderRadius: 10, border: "1px solid #2a1f00" }}>
-                      <div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>{p.cliente_nombre}</div>
-                        <div style={{ fontSize: 11, color: "#555", marginTop: 2 }}>{p.productos}</div>
-                        <div style={{ fontSize: 10, color: "#444", marginTop: 2 }}>{p.creado_en?.substring(0, 10)}</div>
-                      </div>
-                      <span style={{ fontSize: 15, fontWeight: 800, color: "#F59E0B", flexShrink: 0, marginLeft: 8 }}>{"$" + deuda.toLocaleString("es-AR")}</span>
+                {(() => {
+                  const deudoresPorCliente = new Map<string, number>();
+                  deudores.forEach(p => {
+                    const deuda = p.total - (p.anticipo || 0);
+                    deudoresPorCliente.set(p.cliente_nombre, (deudoresPorCliente.get(p.cliente_nombre) || 0) + deuda);
+                  });
+                  return Array.from(deudoresPorCliente.entries()).map(([nombre, deudaTotal]) => (
+                    <div key={nombre} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", background: "#0a0a0a", borderRadius: 10, border: "1px solid #2a1f00" }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>{nombre}</div>
+                      <span style={{ fontSize: 15, fontWeight: 800, color: "#F59E0B", flexShrink: 0, marginLeft: 8 }}>{"$" + deudaTotal.toLocaleString("es-AR")}</span>
                     </div>
-                  );
-                })}
+                  ));
+                })()}
               </div>
               {deudores.length > 0 && (
                 <div style={{ borderTop: "1px solid #2a1f00", paddingTop: 10, marginTop: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
