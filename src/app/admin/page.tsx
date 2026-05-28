@@ -93,6 +93,8 @@ export default function AdminMobileCompleto() {
 
   // CARRITO DE VENTA MANUAL
   const [ventaCliente, setVentaCliente] = useState({ nombre: "", telefono: "", direccion: "" });
+const [sugerenciasCliente, setSugerenciasCliente] = useState<{nombre: string; telefono: string; direccion: string}[]>([]);
+const [mostrarSugerencias, setMostrarSugerencias] = useState(false);
   const [carritoVenta, setCarritoVenta] = useState<ItemCarrito[]>([]);
   const [categoriaFiltroVenta, setCategoriaFiltroVenta] = useState("");
   const [productoSeleccionado, setProductoSeleccionado] = useState("");
@@ -443,7 +445,9 @@ export default function AdminMobileCompleto() {
     setSubiendoComprobante(false);
     mostrarToast("Comprobante adjuntado");
   };
-
+const clientesUnicos = Array.from(
+  new Map(pedidos.map(p => [p.cliente_nombre, { nombre: p.cliente_nombre, telefono: p.cliente_telefono, direccion: p.cliente_direccion }])).values()
+);
   const pedidosFiltrados = pedidos.filter(p => filtroMes === "Todos" ? true : p.creado_en?.startsWith(filtroMes));
   const pedidosActivos = pedidosFiltrados.filter(p => !(p.aprobado && p.estado_pago === "pagado" && p.estado_entrega === "entregado"));
   const productosFiltrados = productos.filter(p =>
@@ -586,7 +590,28 @@ export default function AdminMobileCompleto() {
             <div style={{ background: "#111", borderRadius: 16, padding: 16, border: "1px dashed #ff2d78" }}>
               <h2 style={{ fontSize: 15, margin: "0 0 12px 0", ...neon }}>👤 Datos del Cliente</h2>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                <input value={ventaCliente.nombre} onChange={e => setVentaCliente(p => ({ ...p, nombre: e.target.value }))} placeholder="Nombre y Apellido *" style={inputStyle} />
+                <div style={{ position: "relative" }}>
+  <input value={ventaCliente.nombre}
+    onChange={e => {
+      setVentaCliente(p => ({ ...p, nombre: e.target.value }));
+      const q = e.target.value.toLowerCase();
+      setSugerenciasCliente(q.length > 1 ? clientesUnicos.filter(c => c.nombre.toLowerCase().includes(q)) : []);
+      setMostrarSugerencias(true);
+    }}
+    onBlur={() => setTimeout(() => setMostrarSugerencias(false), 200)}
+    placeholder="Nombre y Apellido *" style={inputStyle} />
+  {mostrarSugerencias && sugerenciasCliente.length > 0 && (
+    <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "#1a1a1a", border: "1px solid #ff2d78", borderRadius: 10, zIndex: 100, overflow: "hidden" }}>
+      {sugerenciasCliente.map((c, i) => (
+        <div key={i} onClick={() => { setVentaCliente(c); setMostrarSugerencias(false); }}
+          style={{ padding: "10px 14px", fontSize: 13, color: "#fff", cursor: "pointer", borderBottom: "1px solid #222" }}>
+          <div style={{ fontWeight: 700 }}>{c.nombre}</div>
+          <div style={{ fontSize: 11, color: "#888" }}>{c.telefono} {c.direccion ? "· " + c.direccion : ""}</div>
+        </div>
+      ))}
+    </div>
+  )}
+</div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                   <input value={ventaCliente.telefono} onChange={e => setVentaCliente(p => ({ ...p, telefono: e.target.value }))} placeholder="Teléfono" style={inputStyle} />
                   <input value={ventaCliente.direccion} onChange={e => setVentaCliente(p => ({ ...p, direccion: e.target.value }))} placeholder="Dirección" style={inputStyle} />
