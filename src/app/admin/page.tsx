@@ -93,8 +93,8 @@ export default function AdminMobileCompleto() {
 
   // CARRITO DE VENTA MANUAL
   const [ventaCliente, setVentaCliente] = useState({ nombre: "", telefono: "", direccion: "" });
-const [sugerenciasCliente, setSugerenciasCliente] = useState<{nombre: string; telefono: string; direccion: string}[]>([]);
-const [mostrarSugerencias, setMostrarSugerencias] = useState(false);
+  const [sugerenciasCliente, setSugerenciasCliente] = useState<{nombre: string; telefono: string; direccion: string}[]>([]);
+  const [mostrarSugerencias, setMostrarSugerencias] = useState(false);
   const [carritoVenta, setCarritoVenta] = useState<ItemCarrito[]>([]);
   const [categoriaFiltroVenta, setCategoriaFiltroVenta] = useState("");
   const [productoSeleccionado, setProductoSeleccionado] = useState("");
@@ -114,6 +114,8 @@ const [mostrarSugerencias, setMostrarSugerencias] = useState(false);
   const [editandoDeudaId, setEditandoDeudaId] = useState<number | null>(null);
   const [nuevoSaldoDeuda, setNuevoSaldoDeuda] = useState("");
   const [vistaProductoCompleto, setVistaProductoCompleto] = useState<Producto | null>(null);
+  const [editandoClienteId, setEditandoClienteId] = useState<number | null>(null);
+  const [editandoClienteData, setEditandoClienteData] = useState({ nombre: "", telefono: "", direccion: "" });
 
   const [pagoParcialModal, setPagoParcialModal] = useState<Pedido | null>(null);
   const [montoPagoParcial, setMontoPagoParcial] = useState("");
@@ -164,7 +166,7 @@ const [mostrarSugerencias, setMostrarSugerencias] = useState(false);
         else if (tag === "brubank") totalBrubank += montoEfectivo;
         else if (tag === "efectivo") totalEfectivo += montoEfectivo;
       }
-      if (p.aprobado && montoEfectivo > 0) {
+      if (montoEfectivo > 0) {
         pool.push({
           fecha: p.creado_en, entidad: p.cliente_nombre, concepto: p.productos,
           monto: montoEfectivo,
@@ -297,15 +299,11 @@ const [mostrarSugerencias, setMostrarSugerencias] = useState(false);
   const ejecutarCargaVentaManual = async () => {
     if (!ventaCliente.nombre) { mostrarToast("Ingresá el nombre del cliente"); return; }
     if (carritoVenta.length === 0) { mostrarToast("Agregá al menos un producto"); return; }
-
     const productosTexto = carritoVenta.map(i => i.nombre + " x" + i.cantidad).join(", ");
     const total = totalCarritoVenta;
-    let anticipo = 0;
-    let estadoPago = "pendiente_pago";
-    let esFinanciado = false;
+    let anticipo = 0, estadoPago = "pendiente_pago", esFinanciado = false;
     let cuotasTotales = 1, cuotasPagadas = 1, montoCuota = 0;
     let cuentaAsignada = tipoPagoVenta === "Cuotas" ? "Efectivo" : tipoPagoVenta;
-
     if (tipoPagoVenta === "Cuotas") {
       esFinanciado = true; cuotasTotales = 3; cuotasPagadas = 1;
       const c1 = total / 3;
@@ -314,8 +312,7 @@ const [mostrarSugerencias, setMostrarSugerencias] = useState(false);
       estadoPago = "pendiente_pago";
     } else {
       if (montoEntregadoVenta === "" || montoEntregadoVenta === "0") {
-        anticipo = 0;
-        estadoPago = "pendiente_pago";
+        anticipo = 0; estadoPago = "pendiente_pago";
       } else {
         const entregado = parseInt(montoEntregadoVenta);
         if (!isNaN(entregado)) {
@@ -325,45 +322,32 @@ const [mostrarSugerencias, setMostrarSugerencias] = useState(false);
         }
       }
     }
-
     await supabase.from("pedidos").insert({
-      cliente_nombre: ventaCliente.nombre,
-      cliente_telefono: ventaCliente.telefono,
-      cliente_direccion: ventaCliente.direccion,
-      productos: productosTexto,
+      cliente_nombre: ventaCliente.nombre, cliente_telefono: ventaCliente.telefono,
+      cliente_direccion: ventaCliente.direccion, productos: productosTexto,
       total, estado_pago: estadoPago, estado_entrega: "pendiente_entrega",
       aprobado: false, es_financiado: esFinanciado, cuotas_totales: cuotasTotales,
       cuotas_pagadas: cuotasPagadas, monto_cuota: montoCuota, anticipo,
       cuenta_ingreso: cuentaAsignada, es_dropshipping: esDropshippingVenta,
     });
-
     mostrarToast("Venta registrada");
     setVentaCliente({ nombre: "", telefono: "", direccion: "" });
-    setCarritoVenta([]);
-    setTipoPagoVenta("Efectivo");
-    setMontoEntregadoVenta("");
-    setEsDropshippingVenta(false);
-    setCategoriaFiltroVenta("");
-    setPestana("ventas");
+    setCarritoVenta([]); setTipoPagoVenta("Efectivo"); setMontoEntregadoVenta("");
+    setEsDropshippingVenta(false); setCategoriaFiltroVenta(""); setPestana("ventas");
     cargarTodo();
   };
 
   const cambiarEstadoPago = async (id: number, nuevoEstado: string) => {
     const updates: Record<string, unknown> = { estado_pago: nuevoEstado };
-    if (nuevoEstado === "pagado") {
-      const p = pedidos.find(o => o.id === id);
-      if (p) updates.anticipo = p.total;
-    }
+    if (nuevoEstado === "pagado") { const p = pedidos.find(o => o.id === id); if (p) updates.anticipo = p.total; }
     await supabase.from("pedidos").update(updates).eq("id", id);
     cargarTodo();
   };
   const cambiarEstadoEntrega = async (id: number, nuevoEstado: string) => {
-    await supabase.from("pedidos").update({ estado_entrega: nuevoEstado }).eq("id", id);
-    cargarTodo();
+    await supabase.from("pedidos").update({ estado_entrega: nuevoEstado }).eq("id", id); cargarTodo();
   };
   const cambiarCuentaIngreso = async (id: number, nuevaCuenta: string) => {
-    await supabase.from("pedidos").update({ cuenta_ingreso: nuevaCuenta }).eq("id", id);
-    cargarTodo();
+    await supabase.from("pedidos").update({ cuenta_ingreso: nuevaCuenta }).eq("id", id); cargarTodo();
   };
   const ejecutarConfirmacionEntregaReal = async (pedido: Pedido) => {
     if (pedido.aprobado) return;
@@ -389,9 +373,7 @@ const [mostrarSugerencias, setMostrarSugerencias] = useState(false);
     const nuevoAnticipoCalculado = totalPedido - deudaFijada;
     const nuevoEstadoPago = deudaFijada === 0 ? "pagado" : "pendiente_pago";
     await supabase.from("pedidos").update({ anticipo: nuevoAnticipoCalculado, estado_pago: nuevoEstadoPago }).eq("id", id);
-    setEditandoDeudaId(null); setNuevoSaldoDeuda("");
-    mostrarToast("Deuda actualizada");
-    cargarTodo();
+    setEditandoDeudaId(null); setNuevoSaldoDeuda(""); mostrarToast("Deuda actualizada"); cargarTodo();
   };
 
   const subirComprobantePago = async (file: File) => {
@@ -432,8 +414,7 @@ const [mostrarSugerencias, setMostrarSugerencias] = useState(false);
     });
     if (insertError) { mostrarToast("Error al guardar"); return; }
     setMovimientoManual({ entidad: "", monto: "", concepto: "", cuenta: "alias", comprobanteUrl: "" });
-    mostrarToast("Movimiento registrado ✓");
-    cargarTodo();
+    mostrarToast("Movimiento registrado ✓"); cargarTodo();
   };
 
   const subirFotoComprobante = async (file: File) => {
@@ -442,12 +423,12 @@ const [mostrarSugerencias, setMostrarSugerencias] = useState(false);
     await supabase.storage.from("productos").upload(nombreFile, file);
     const { data } = supabase.storage.from("productos").getPublicUrl(nombreFile);
     setMovimientoManual(prev => ({ ...prev, comprobanteUrl: data.publicUrl }));
-    setSubiendoComprobante(false);
-    mostrarToast("Comprobante adjuntado");
+    setSubiendoComprobante(false); mostrarToast("Comprobante adjuntado");
   };
-const clientesUnicos = Array.from(
-  new Map(pedidos.map(p => [p.cliente_nombre, { nombre: p.cliente_nombre, telefono: p.cliente_telefono, direccion: p.cliente_direccion }])).values()
-);
+
+  const clientesUnicos = Array.from(
+    new Map(pedidos.map(p => [p.cliente_nombre, { nombre: p.cliente_nombre, telefono: p.cliente_telefono, direccion: p.cliente_direccion }])).values()
+  );
   const pedidosFiltrados = pedidos.filter(p => filtroMes === "Todos" ? true : p.creado_en?.startsWith(filtroMes));
   const pedidosActivos = pedidosFiltrados.filter(p => !(p.aprobado && p.estado_pago === "pagado" && p.estado_entrega === "entregado"));
   const productosFiltrados = productos.filter(p =>
@@ -496,7 +477,6 @@ const clientesUnicos = Array.from(
         </div>
       )}
 
-      {/* MODAL PAGO PARCIAL */}
       {pagoParcialModal && (
         <div style={{ position: "fixed", inset: 0, zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
           <div onClick={() => setPagoParcialModal(null)} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.85)" }} />
@@ -525,13 +505,9 @@ const clientesUnicos = Array.from(
               </div>
               <div style={{ display: "flex", gap: 10, marginTop: 6 }}>
                 <button onClick={() => { setPagoParcialModal(null); setMontoPagoParcial(""); setComprobantePagoParcial(""); }}
-                  style={{ flex: 1, padding: 12, background: "#222", border: "none", borderRadius: 12, color: "#fff", fontWeight: 700, cursor: "pointer" }}>
-                  Cancelar
-                </button>
+                  style={{ flex: 1, padding: 12, background: "#222", border: "none", borderRadius: 12, color: "#fff", fontWeight: 700, cursor: "pointer" }}>Cancelar</button>
                 <button onClick={registrarPagoParcial}
-                  style={{ flex: 2, padding: 12, background: "linear-gradient(135deg, #10B981, #059669)", border: "none", borderRadius: 12, color: "#fff", fontWeight: 800, cursor: "pointer" }}>
-                  Confirmar Pago
-                </button>
+                  style={{ flex: 2, padding: 12, background: "linear-gradient(135deg, #10B981, #059669)", border: "none", borderRadius: 12, color: "#fff", fontWeight: 800, cursor: "pointer" }}>Confirmar Pago</button>
               </div>
             </div>
           </div>
@@ -548,13 +524,9 @@ const clientesUnicos = Array.from(
             <p style={{ color: "#fff", fontWeight: 700, fontSize: 15, marginBottom: 20 }}>{confirmarEliminar.nombre}</p>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               <button onClick={() => eliminarProducto(confirmarEliminar.id)}
-                style={{ width: "100%", padding: 14, background: "linear-gradient(135deg, #EF4444, #B91C1C)", border: "none", borderRadius: 12, color: "#fff", fontWeight: 800, cursor: "pointer" }}>
-                Sí, eliminar
-              </button>
+                style={{ width: "100%", padding: 14, background: "linear-gradient(135deg, #EF4444, #B91C1C)", border: "none", borderRadius: 12, color: "#fff", fontWeight: 800, cursor: "pointer" }}>Sí, eliminar</button>
               <button onClick={() => setConfirmarEliminar(null)}
-                style={{ width: "100%", padding: 12, background: "#222", border: "none", borderRadius: 12, color: "#fff", fontWeight: 700, cursor: "pointer" }}>
-                Cancelar
-              </button>
+                style={{ width: "100%", padding: 12, background: "#222", border: "none", borderRadius: 12, color: "#fff", fontWeight: 700, cursor: "pointer" }}>Cancelar</button>
             </div>
           </div>
         </div>
@@ -582,36 +554,33 @@ const clientesUnicos = Array.from(
 
       <div style={{ maxWidth: 600, margin: "0 auto" }}>
 
-        {/* CARGAR VENTA CON CARRITO */}
         {pestana === "cargar_venta" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-
-            {/* DATOS CLIENTE */}
             <div style={{ background: "#111", borderRadius: 16, padding: 16, border: "1px dashed #ff2d78" }}>
               <h2 style={{ fontSize: 15, margin: "0 0 12px 0", ...neon }}>👤 Datos del Cliente</h2>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 <div style={{ position: "relative" }}>
-  <input value={ventaCliente.nombre}
-    onChange={e => {
-      setVentaCliente(p => ({ ...p, nombre: e.target.value }));
-      const q = e.target.value.toLowerCase();
-      setSugerenciasCliente(q.length > 1 ? clientesUnicos.filter(c => c.nombre.toLowerCase().includes(q)) : []);
-      setMostrarSugerencias(true);
-    }}
-    onBlur={() => setTimeout(() => setMostrarSugerencias(false), 200)}
-    placeholder="Nombre y Apellido *" style={inputStyle} />
-  {mostrarSugerencias && sugerenciasCliente.length > 0 && (
-    <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "#1a1a1a", border: "1px solid #ff2d78", borderRadius: 10, zIndex: 100, overflow: "hidden" }}>
-      {sugerenciasCliente.map((c, i) => (
-        <div key={i} onClick={() => { setVentaCliente(c); setMostrarSugerencias(false); }}
-          style={{ padding: "10px 14px", fontSize: 13, color: "#fff", cursor: "pointer", borderBottom: "1px solid #222" }}>
-          <div style={{ fontWeight: 700 }}>{c.nombre}</div>
-          <div style={{ fontSize: 11, color: "#888" }}>{c.telefono} {c.direccion ? "· " + c.direccion : ""}</div>
-        </div>
-      ))}
-    </div>
-  )}
-</div>
+                  <input value={ventaCliente.nombre}
+                    onChange={e => {
+                      setVentaCliente(p => ({ ...p, nombre: e.target.value }));
+                      const q = e.target.value.toLowerCase();
+                      setSugerenciasCliente(q.length > 1 ? clientesUnicos.filter(c => c.nombre.toLowerCase().includes(q)) : []);
+                      setMostrarSugerencias(true);
+                    }}
+                    onBlur={() => setTimeout(() => setMostrarSugerencias(false), 200)}
+                    placeholder="Nombre y Apellido *" style={inputStyle} />
+                  {mostrarSugerencias && sugerenciasCliente.length > 0 && (
+                    <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "#1a1a1a", border: "1px solid #ff2d78", borderRadius: 10, zIndex: 100, overflow: "hidden" }}>
+                      {sugerenciasCliente.map((c, i) => (
+                        <div key={i} onClick={() => { setVentaCliente(c); setMostrarSugerencias(false); }}
+                          style={{ padding: "10px 14px", fontSize: 13, color: "#fff", cursor: "pointer", borderBottom: "1px solid #222" }}>
+                          <div style={{ fontWeight: 700 }}>{c.nombre}</div>
+                          <div style={{ fontSize: 11, color: "#888" }}>{c.telefono} {c.direccion ? "· " + c.direccion : ""}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                   <input value={ventaCliente.telefono} onChange={e => setVentaCliente(p => ({ ...p, telefono: e.target.value }))} placeholder="Teléfono" style={inputStyle} />
                   <input value={ventaCliente.direccion} onChange={e => setVentaCliente(p => ({ ...p, direccion: e.target.value }))} placeholder="Dirección" style={inputStyle} />
@@ -619,7 +588,6 @@ const clientesUnicos = Array.from(
               </div>
             </div>
 
-            {/* AGREGAR PRODUCTOS */}
             <div style={{ background: "#111", borderRadius: 16, padding: 16, border: "1px solid #333" }}>
               <h2 style={{ fontSize: 15, margin: "0 0 12px 0", color: "#fff" }}>🛍️ Agregar Productos</h2>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -649,7 +617,6 @@ const clientesUnicos = Array.from(
               </div>
             </div>
 
-            {/* RESUMEN CARRITO */}
             {carritoVenta.length > 0 && (
               <div style={{ background: "#111", borderRadius: 16, padding: 16, border: "1px solid #ff2d78" }}>
                 <h2 style={{ fontSize: 15, margin: "0 0 12px 0", ...neon }}>🧾 Resumen del Pedido</h2>
@@ -671,7 +638,6 @@ const clientesUnicos = Array.from(
                   <span style={{ fontWeight: 700, fontSize: 14 }}>TOTAL:</span>
                   <span style={{ fontWeight: 900, fontSize: 18, color: "#ff2d78" }}>{fmt(totalCarritoVenta)}</span>
                 </div>
-
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#0a0a0a", padding: 12, borderRadius: 10, border: "1px solid #222" }}>
                     <input type="checkbox" id="drop2" checked={esDropshippingVenta} onChange={e => setEsDropshippingVenta(e.target.checked)} style={{ transform: "scale(1.3)" }} />
@@ -808,6 +774,27 @@ const clientesUnicos = Array.from(
                   <div style={{ fontSize: 13, color: "#ff2d78", fontWeight: 700, marginBottom: 6 }}>Total: {fmt(pedido.total)}</div>
                   {deuda > 0 && <div style={{ fontSize: 12, color: "#F59E0B", marginBottom: 6 }}>⚠️ Debe: {fmt(deuda)}</div>}
                   {pedido.es_dropshipping && <div style={{ fontSize: 11, color: "#8B5CF6", marginBottom: 6 }}>🚚 Dropshipping</div>}
+
+                  {editandoClienteId === pedido.id ? (
+                    <div style={{ background: "#0a0a0a", borderRadius: 10, padding: 10, marginBottom: 8, border: "1px solid #ff2d78", display: "flex", flexDirection: "column", gap: 8 }}>
+                      <input value={editandoClienteData.nombre} onChange={e => setEditandoClienteData(p => ({ ...p, nombre: e.target.value }))} placeholder="Nombre" style={{ ...inputStyle, padding: 8, fontSize: 12 }} />
+                      <input value={editandoClienteData.telefono} onChange={e => setEditandoClienteData(p => ({ ...p, telefono: e.target.value }))} placeholder="Teléfono" style={{ ...inputStyle, padding: 8, fontSize: 12 }} />
+                      <input value={editandoClienteData.direccion} onChange={e => setEditandoClienteData(p => ({ ...p, direccion: e.target.value }))} placeholder="Dirección" style={{ ...inputStyle, padding: 8, fontSize: 12 }} />
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button onClick={async () => {
+                          await supabase.from("pedidos").update({ cliente_nombre: editandoClienteData.nombre, cliente_telefono: editandoClienteData.telefono, cliente_direccion: editandoClienteData.direccion }).eq("id", pedido.id);
+                          setEditandoClienteId(null); mostrarToast("Cliente actualizado"); cargarTodo();
+                        }} style={{ flex: 2, padding: 8, background: "#ff2d78", border: "none", borderRadius: 8, color: "#fff", fontWeight: 700, cursor: "pointer", fontSize: 12 }}>💾 Guardar</button>
+                        <button onClick={() => setEditandoClienteId(null)} style={{ flex: 1, padding: 8, background: "#333", border: "none", borderRadius: 8, color: "#fff", cursor: "pointer", fontSize: 12 }}>✕</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button onClick={() => { setEditandoClienteId(pedido.id); setEditandoClienteData({ nombre: pedido.cliente_nombre, telefono: pedido.cliente_telefono, direccion: pedido.cliente_direccion }); }}
+                      style={{ marginBottom: 6, padding: "5px 10px", background: "#1a1a1a", border: "1px solid #444", borderRadius: 8, color: "#aaa", fontSize: 11, cursor: "pointer" }}>
+                      ✏️ Editar datos cliente
+                    </button>
+                  )}
+
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
                     <select value={pedido.estado_pago} onChange={e => cambiarEstadoPago(pedido.id, e.target.value)} style={{ ...inputStyle, width: "auto", padding: "6px 8px", fontSize: 11 }}>
                       <option value="pagado">✅ Pagado</option>
