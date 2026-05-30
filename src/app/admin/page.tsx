@@ -476,7 +476,7 @@ export default function AdminMobileCompleto() {
                 <div style={{ color: "#888", fontSize: 11, marginBottom: 4 }}>Cuenta donde ingresa</div>
                 <select value={cuentaPagoParcial} onChange={e => setCuentaPagoParcial(e.target.value)} style={inputStyle}>
                   <option value="Efectivo">💵 Efectivo</option>
-                  <option value="Alias: carito.shop">📱 Alias carito.shop</option>
+                  <option value="Alias: CARITO.SHOP">📱 Alias CARITO.SHOP</option>
                   <option value="Brubank Señora (DIARIO.ITALIA.ARENA)">👩 Brubank Señora</option>
                 </select>
               </div>
@@ -630,7 +630,7 @@ export default function AdminMobileCompleto() {
                     <div style={{ color: "#888", fontSize: 11, marginBottom: 4 }}>Forma de Pago</div>
                     <select value={tipoPagoVenta} onChange={e => setTipoPagoVenta(e.target.value)} style={inputStyle}>
                       <option value="Efectivo">💵 Efectivo</option>
-                      <option value="Alias: carito.shop">📱 Alias carito.shop</option>
+                      <option value="Alias: CARITO.SHOP">📱 Alias: CARITO.SHOP</option>
                       <option value="Brubank Señora (DIARIO.ITALIA.ARENA)">👩 Brubank Señora</option>
                       <option value="Cuotas">📈 Financiar en 3 Cuotas</option>
                     </select>
@@ -809,7 +809,7 @@ export default function AdminMobileCompleto() {
                             </select>
                             <select value={pedido.cuenta_ingreso} onChange={e => cambiarCuentaIngreso(pedido.id, e.target.value)} style={{ ...inputStyle, width: "auto", padding: "6px 8px", fontSize: 11 }}>
                               <option value="Efectivo">💵 Efectivo</option>
-                              <option value="Alias: carito.shop">📱 Alias</option>
+                              <option value="Alias: CARITO.SHOP">📱 Alias</option>
                               <option value="Brubank Señora (DIARIO.ITALIA.ARENA)">👩 Brubank</option>
                             </select>
                           </div>
@@ -845,7 +845,7 @@ export default function AdminMobileCompleto() {
                             const estado = p.estado_entrega === "entregado" ? "✅" : "📦";
                             return `${estado} ${p.productos} — ${fmt(p.total)}${d > 0 ? ` (Debe: ${fmt(d)})` : " (Pagado)"}`;
                           }).join("\n");
-                          const msg = `📦 *CARITO.SHOP*\n━━━━━━━━━━━━━━\nHola ${nombreCliente} 👋\n\nTe recordamos que tenés saldos pendientes:\n\n${productosTexto}\n\n⚠️ *Deuda total: ${fmt(deudaTotalCliente)}*\n\nPor favor realizá la transferencia a:\n📱 Alias: carito.shop\n\n¡Muchas gracias! 🌸\n━━━━━━━━━━━━━━\nCARITO.SHOP - Tu tienda favorita`;
+                          const msg = `📦 *CARITO.SHOP*\n━━━━━━━━━━━━━━\nHola ${nombreCliente} 👋\n\nTe recordamos que tenés saldos pendientes:\n\n${productosTexto}\n\n⚠️ *Deuda total: ${fmt(deudaTotalCliente)}*\n\nPor favor realizá la transferencia a:\n📱 Alias: CARITO.SHOP\n\n¡Muchas gracias! 🌸\n━━━━━━━━━━━━━━\nCARITO.SHOP - Tu tienda favorita`;
                           window.open("https://wa.me/?text=" + encodeURIComponent(msg), "_blank");
                         }} style={{ width: "100%", padding: 10, background: "transparent", border: "1px solid #25D366", borderRadius: 10, color: "#25D366", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
                           📲 Recordatorio completo por WhatsApp
@@ -892,7 +892,7 @@ export default function AdminMobileCompleto() {
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {[
                   { label: "Efectivo", valor: cajas.efectivo, icono: "💵", clave: "efectivo" },
-                  { label: "Alias carito.shop", valor: cajas.alias, icono: "📱", clave: "alias" },
+                  { label: "Alias CARITO.SHOP", valor: cajas.alias, icono: "📱", clave: "alias" },
                   { label: "Brubank Señora", valor: cajas.brubankSenora, icono: "👩", clave: "brubank" },
                 ].map(({ label, valor, icono, clave }) => (
                   <div key={clave} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", background: "#0a0a0a", borderRadius: 10, border: "1px solid #1a1a1a" }}>
@@ -934,11 +934,12 @@ export default function AdminMobileCompleto() {
                   <div>
                     <div style={{ color: "#888", fontSize: 11, marginBottom: 4 }}>Cuenta</div>
                     <select value={movimientoManual.cuenta} onChange={e => setMovimientoManual(p => ({ ...p, cuenta: e.target.value }))} style={inputStyle}>
-                      <option value="alias">📱 Alias carito.shop</option>
+                      <option value="alias">📱 Alias CARITO.SHOP</option>
                       <option value="Brubank Señora (DIARIO.ITALIA.ARENA)">👩 Brubank Señora</option>
                       <option value="efectivo">💵 Efectivo</option>
                     </select>
                   </div>
+
                 </div>
                 <div>
                   <div style={{ color: "#888", fontSize: 11, marginBottom: 4 }}>Concepto (opcional)</div>
