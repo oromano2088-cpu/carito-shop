@@ -158,7 +158,10 @@ export default function AdminMobileCompleto() {
     const pool: ElementoHistorial[] = [];
 
     listaPedidos.forEach(p => {
-      const montoEfectivo = p.estado_pago === "pagado" ? p.total : (p.anticipo || 0);
+      const tienePagosParciales = listaPagosParciales.some(pp => pp.pedido_id === p.id);
+      const montoEfectivo = tienePagosParciales
+        ? (p.estado_pago === "pagado" && (p.anticipo || 0) === p.total ? p.total - listaPagosParciales.filter(pp => pp.pedido_id === p.id).reduce((a, x) => a + x.monto, 0) : 0)
+        : (p.estado_pago === "pagado" ? p.total : (p.anticipo || 0));
       const tag = normalizarCuenta(p.cuenta_ingreso);
       if (montoEfectivo > 0) {
         if (tag === "alias") totalAlias += montoEfectivo;
