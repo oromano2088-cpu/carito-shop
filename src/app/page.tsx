@@ -67,7 +67,7 @@ export default function Home() {
   }, [ofertaActiva]);
 
   const init = async () => {
-    const { data } = await supabase.from("productos").select("*").eq("activo", true).gt("stock", 0).order("creado_en", { ascending: false });
+    const { data } = await supabase.from("productos").select("*").eq("activo", true).order("creado_en", { ascending: false });
     if (data) {
       setLista(data);
       const ahoraIso = new Date().toISOString();
@@ -122,6 +122,7 @@ if (ofertasVigentes.length > 0) {
   })();
 
   const agregar = (p: Producto) => {
+    if (p.stock === 0) { setToast("Sin stock disponible - Consultanos"); setTimeout(() => setToast(""), 2000); return; }
     const enCarrito = carrito.find(i => i.id === p.id);
     const cantidadEnCarrito = enCarrito ? enCarrito.cantidad : 0;
     if (cantidadEnCarrito >= p.stock) { setToast("No hay mas stock disponible"); setTimeout(() => setToast(""), 2000); return; }
@@ -419,6 +420,11 @@ if (ofertasVigentes.length > 0) {
                     ) : (
                       <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 70 }}>{p.emoji}</div>
                     )}
+                    {p.stock === 0 && (
+                      <div style={{ position: "absolute", top: 8, left: 8, background: "#F59E0B", color: "#000", fontSize: 11, fontWeight: 700, padding: "4px 8px", borderRadius: 8 }}>
+                        Consultar Stock
+                      </div>
+                    )}
                     {p.stock <= 3 && p.stock > 0 && (
                       <div style={{ position: "absolute", top: 8, left: 8, background: "#EF4444", color: "#fff", fontSize: 11, fontWeight: 700, padding: "4px 8px", borderRadius: 8 }}>
                         Ultimas {p.stock} unidades
@@ -446,11 +452,17 @@ if (ofertasVigentes.length > 0) {
                           <span style={{ fontSize: 13, color: "#555", textDecoration: "line-through" }}>{"$" + p.precio.toLocaleString("es-AR")}</span>
                         )}
                       </div>
-                      <span style={{ fontSize: 12, color: "#555" }}>{"Stock: " + p.stock}</span>
+                      <span style={{ fontSize: 12, color: p.stock === 0 ? "#F59E0B" : "#555" }}>{p.stock === 0 ? "Consultar Stock" : "Stock: " + p.stock}</span>
                     </div>
-                    <button onClick={() => agregar(p)} style={{ width: "100%", padding: 12, background: "linear-gradient(135deg, #ff2d78, #ff0055)", border: "none", borderRadius: 12, color: "#fff", fontWeight: 800, cursor: "pointer", marginBottom: 8 }}>
-                      Agregar al carrito
-                    </button>
+                    {p.stock === 0 ? (
+                      <button disabled style={{ width: "100%", padding: 12, background: "#333", border: "none", borderRadius: 12, color: "#888", fontWeight: 800, cursor: "not-allowed", marginBottom: 8 }}>
+                        Sin stock - Consultar
+                      </button>
+                    ) : (
+                      <button onClick={() => agregar(p)} style={{ width: "100%", padding: 12, background: "linear-gradient(135deg, #ff2d78, #ff0055)", border: "none", borderRadius: 12, color: "#fff", fontWeight: 800, cursor: "pointer", marginBottom: 8 }}>
+                        Agregar al carrito
+                      </button>
+                    )}
                     <button onClick={() => {
                       const msg = "Hola CARITO.SHOP! Me interesa: " + p.nombre + " - $" + precioMostrar.toLocaleString("es-AR") + "\n\n*Alias de Pago (Brubank):* carito.shop\n*(Por favor, enviame el comprobante por acá)*";
                       window.open("https://wa.me/5491133851488?text=" + encodeURIComponent(msg), "_blank");
