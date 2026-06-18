@@ -77,6 +77,7 @@ export default function AdminMobileCompleto() {
   const [cargando, setCargando] = useState(false);
   const [editando, setEditando] = useState<Producto | null>(null);
   const [confirmarEliminar, setConfirmarEliminar] = useState<Producto | null>(null);
+  const [confirmarEliminarOrden, setConfirmarEliminarOrden] = useState<Pedido | null>(null);
   const [busquedaCatalogo, setBusquedaCatalogo] = useState("");
   const [categoriaAbierta, setCategoriaAbierta] = useState<string | null>(null);
   const [filtroMes, setFiltroMes] = useState("Todos");
@@ -310,6 +311,19 @@ export default function AdminMobileCompleto() {
         }
       }
     }
+
+    // Descontar stock al registrar la venta (no al confirmar entrega)
+    if (!esDropshippingVenta) {
+      for (const item of carritoVenta) {
+        const prod = productos.find(p => p.id === item.productoId);
+        if (prod) {
+          await supabase.from("productos").update({
+            stock: Math.max(0, prod.stock - item.cantidad)
+          }).eq("id", prod.id);
+        }
+      }
+    }
+
     await supabase.from("pedidos").insert({
       cliente_nombre: ventaCliente.nombre, cliente_telefono: ventaCliente.telefono,
       cliente_direccion: ventaCliente.direccion, productos: productosTexto,
@@ -318,10 +332,38 @@ export default function AdminMobileCompleto() {
       cuotas_pagadas: cuotasPagadas, monto_cuota: montoCuota, anticipo,
       cuenta_ingreso: cuentaAsignada, es_dropshipping: esDropshippingVenta,
     });
-    mostrarToast("Venta registrada");
+    mostrarToast("Venta registrada ✓ Stock actualizado");
     setVentaCliente({ nombre: "", telefono: "", direccion: "" });
     setCarritoVenta([]); setTipoPagoVenta("Efectivo"); setMontoEntregadoVenta("");
     setEsDropshippingVenta(false); setCategoriaFiltroVenta(""); setPestana("ventas");
+    cargarTodo();
+  };
+
+  // NUEVA FUNCION: Eliminar orden y restaurar stock
+  const eliminarOrden = async (pedido: Pedido) => {
+    // Restaurar stock si no es dropshipping
+    if (!pedido.es_dropshipping) {
+      const items = pedido.productos.split(", ");
+      for (const item of items) {
+        const partes = item.split(" x");
+        if (partes.length === 2) {
+          const nombreProducto = partes[0].trim();
+          const cant = parseInt(partes[1]);
+          if (!isNaN(cant)) {
+            const { data: prod } = await supabase.from("productos").select("id, stock").eq("nombre", nombreProducto).single();
+            if (prod) {
+              await supabase.from("productos").update({ stock: prod.stock + cant }).eq("id", prod.id);
+            }
+          }
+        }
+      }
+    }
+    // Eliminar pagos parciales asociados
+    await supabase.from("pagos_parciales").delete().eq("pedido_id", pedido.id);
+    // Eliminar el pedido
+    await supabase.from("pedidos").delete().eq("id", pedido.id);
+    setConfirmarEliminarOrden(null);
+    mostrarToast("Orden eliminada y stock restaurado ✓");
     cargarTodo();
   };
 
@@ -338,20 +380,8 @@ export default function AdminMobileCompleto() {
   };
   const ejecutarConfirmacionEntregaReal = async (pedido: Pedido) => {
     if (pedido.aprobado) return;
-    if (!pedido.es_dropshipping) {
-      const items = pedido.productos.split(", ");
-      for (const item of items) {
-        const partes = item.split(" x");
-        if (partes.length === 2) {
-          const nombreProducto = partes[0].trim();
-          const cant = parseInt(partes[1]);
-          const { data: prod } = await supabase.from("productos").select("id, stock").eq("nombre", nombreProducto).single();
-          if (prod) await supabase.from("productos").update({ stock: Math.max(0, prod.stock - cant) }).eq("id", prod.id);
-        }
-      }
-    }
     await supabase.from("pedidos").update({ aprobado: true, estado_entrega: "entregado" }).eq("id", pedido.id);
-    mostrarToast(pedido.es_dropshipping ? "Dropshipping Confirmado" : "Entrega cerrada y stock descontado");
+    mostrarToast(pedido.es_dropshipping ? "Dropshipping Confirmado" : "Entrega confirmada ✓");
     cargarTodo();
   };
   const guardarModificacionDeudaManual = async (id: number, totalPedido: number) => {
@@ -460,6 +490,40 @@ export default function AdminMobileCompleto() {
       {toast && (
         <div style={{ position: "fixed", bottom: 20, left: "50%", transform: "translateX(-50%)", background: "#ff2d78", color: "#fff", padding: "10px 20px", borderRadius: 10, fontWeight: 700, zIndex: 9999, fontSize: 13 }}>
           {toast}
+        </div>
+      )}
+
+      {/* MODAL: Confirmar eliminar ORDEN */}
+      {confirmarEliminarOrden && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div onClick={() => setConfirmarEliminarOrden(null)} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.9)" }} />
+          <div style={{ position: "relative", background: "#111", border: "2px solid #EF4444", borderRadius: 20, padding: 28, width: "100%", maxWidth: 360, textAlign: "center" }}>
+            <div style={{ fontSize: 44, marginBottom: 10 }}>🗑️</div>
+            <h3 style={{ color: "#EF4444", fontWeight: 900, fontSize: 17, marginBottom: 8 }}>Eliminar Orden</h3>
+            <p style={{ color: "#aaa", fontSize: 13, marginBottom: 4 }}>Cliente: <strong style={{ color: "#fff" }}>{confirmarEliminarOrden.cliente_nombre}</strong></p>
+            <p style={{ color: "#aaa", fontSize: 12, marginBottom: 4 }}>{confirmarEliminarOrden.productos}</p>
+            <p style={{ color: "#ff2d78", fontSize: 13, fontWeight: 700, marginBottom: 6 }}>Total: {fmt(confirmarEliminarOrden.total)}</p>
+            {!confirmarEliminarOrden.es_dropshipping && (
+              <p style={{ color: "#10B981", fontSize: 12, marginBottom: 16, background: "#052e16", padding: "6px 10px", borderRadius: 8 }}>
+                ✅ El stock de los productos será restaurado automáticamente
+              </p>
+            )}
+            {confirmarEliminarOrden.es_dropshipping && (
+              <p style={{ color: "#8B5CF6", fontSize: 12, marginBottom: 16, background: "#1a0a2e", padding: "6px 10px", borderRadius: 8 }}>
+                🚚 Es Dropshipping — no se modifica el stock
+              </p>
+            )}
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <button onClick={() => eliminarOrden(confirmarEliminarOrden)}
+                style={{ width: "100%", padding: 13, background: "linear-gradient(135deg, #EF4444, #B91C1C)", border: "none", borderRadius: 12, color: "#fff", fontWeight: 800, cursor: "pointer" }}>
+                Sí, eliminar orden
+              </button>
+              <button onClick={() => setConfirmarEliminarOrden(null)}
+                style={{ width: "100%", padding: 11, background: "#222", border: "none", borderRadius: 12, color: "#fff", fontWeight: 700, cursor: "pointer" }}>
+                Cancelar
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -589,7 +653,9 @@ export default function AdminMobileCompleto() {
                   <select value={productoSeleccionado} onChange={e => setProductoSeleccionado(e.target.value)} style={inputStyle}>
                     <option value="">-- Elegí un producto --</option>
                     {productosFiltradosVenta.map(p => (
-                      <option key={p.id} value={p.id}>{p.nombre} (${(p.precio_oferta || p.precio).toLocaleString("es-AR")} - Stock: {p.stock})</option>
+                      <option key={p.id} value={p.id}>
+                        {p.nombre} (${(p.precio_oferta || p.precio).toLocaleString("es-AR")} - {p.stock === 0 ? "⚠️ SIN STOCK" : `Stock: ${p.stock}`})
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -627,7 +693,7 @@ export default function AdminMobileCompleto() {
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#0a0a0a", padding: 12, borderRadius: 10, border: "1px solid #222" }}>
                     <input type="checkbox" id="drop2" checked={esDropshippingVenta} onChange={e => setEsDropshippingVenta(e.target.checked)} style={{ transform: "scale(1.3)" }} />
-                    <label htmlFor="drop2" style={{ fontSize: 13, color: "#ccc" }}>Es Dropshipping</label>
+                    <label htmlFor="drop2" style={{ fontSize: 13, color: "#ccc" }}>Es Dropshipping (no descuenta stock)</label>
                   </div>
                   <div>
                     <div style={{ color: "#888", fontSize: 11, marginBottom: 4 }}>Forma de Pago</div>
@@ -816,6 +882,7 @@ export default function AdminMobileCompleto() {
                               <option value="Brubank Señora (DIARIO.ITALIA.ARENA)">👩 Brubank</option>
                             </select>
                           </div>
+
                           {!pedido.aprobado && (
                             <button onClick={() => ejecutarConfirmacionEntregaReal(pedido)} style={{ ...buttonStyle, marginTop: 8, fontSize: 12, padding: 10 }}>
                               ✅ Confirmar Entrega
@@ -836,6 +903,12 @@ export default function AdminMobileCompleto() {
                           ) : (
                             deuda > 0 && <button onClick={() => { setEditandoDeudaId(pedido.id); setNuevoSaldoDeuda(String(deuda)); }} style={{ marginTop: 6, padding: "6px 12px", background: "#1a1a1a", border: "1px solid #F59E0B", borderRadius: 8, color: "#F59E0B", fontSize: 11, cursor: "pointer" }}>✏️ Editar deuda</button>
                           )}
+
+                          {/* BOTON ELIMINAR ORDEN */}
+                          <button onClick={() => setConfirmarEliminarOrden(pedido)}
+                            style={{ width: "100%", marginTop: 8, padding: 10, background: "transparent", border: "1px solid #EF4444", borderRadius: 10, color: "#EF4444", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+                            🗑️ Eliminar esta orden
+                          </button>
                         </div>
                       );
                     })}
@@ -942,7 +1015,6 @@ export default function AdminMobileCompleto() {
                       <option value="efectivo">💵 Efectivo</option>
                     </select>
                   </div>
-
                 </div>
                 <div>
                   <div style={{ color: "#888", fontSize: 11, marginBottom: 4 }}>Concepto (opcional)</div>
@@ -1065,7 +1137,11 @@ function TarjetaProducto({ p, onVer, onEditar, onEliminar, onToggleActivo, onSto
         <div style={{ fontSize: 12, color: "#ff2d78", fontWeight: 800 }}>${(p.precio_oferta || p.precio).toLocaleString("es-AR")}</div>
         <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4, flexWrap: "wrap" }}>
           <button type="button" onClick={() => onStock(-1)} style={{ background: "#222", border: "1px solid #333", color: "#fff", width: 24, height: 24, borderRadius: 4, cursor: "pointer" }}>-</button>
-          <span style={{ fontSize: 12, color: "#aaa" }}>Stock: {p.stock}</span>
+          {p.stock === 0 ? (
+            <span style={{ fontSize: 11, color: "#F59E0B", fontWeight: 700, background: "#1a1400", padding: "2px 6px", borderRadius: 4, border: "1px solid #F59E0B" }}>⚠️ SIN STOCK</span>
+          ) : (
+            <span style={{ fontSize: 12, color: "#aaa" }}>Stock: {p.stock}</span>
+          )}
           <button type="button" onClick={() => onStock(1)} style={{ background: "#222", border: "1px solid #333", color: "#fff", width: 24, height: 24, borderRadius: 4, cursor: "pointer" }}>+</button>
           <button type="button" onClick={onToggleActivo} style={{ padding: "2px 8px", background: p.activo ? "#10B981" : "#374151", border: "none", color: "#fff", borderRadius: 4, fontSize: 11, cursor: "pointer" }}>
             {p.activo ? "Activo" : "Inactivo"}
