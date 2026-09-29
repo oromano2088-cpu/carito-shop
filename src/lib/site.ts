@@ -5,9 +5,13 @@
 //   NEXT_PUBLIC_WHATSAPP queda solo como respaldo si la base no responde.
 export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://carito-shop-tienda.vercel.app").replace(/\/$/, "");
 export const SITE_NAME = "CARITO.SHOP";
+// Ficha de la tienda en Google Maps (reseñas, ubicación).
+export const GOOGLE_MAPS_URL = "https://maps.app.goo.gl/SySkiuEDdS5sLaor5";
+// Código de verificación de Google Search Console (etiqueta HTML "google-site-verification").
+export const GOOGLE_SITE_VERIFICATION = process.env.NEXT_PUBLIC_GSC_VERIFICATION || "";
 export const SITE_DESCRIPTION =
   "Tienda online de tecnología y accesorios en Argentina. Mirá el catálogo con precios y stock actualizados y consultanos o comprá por WhatsApp.";
-export const WHATSAPP_NUMBER = (process.env.NEXT_PUBLIC_WHATSAPP || "5491141768461").replace(/[^0-9]/g, "");
+export const WHATSAPP_NUMBER = (process.env.NEXT_PUBLIC_WHATSAPP || "5491133851488").replace(/[^0-9]/g, "");
 
 // Convierte lo que se escriba (ej. "11 4176-8461", "011 15 4176 8461", "+54 9 11...")
 // al formato que usa WhatsApp: 549 + característica + número, solo dígitos.

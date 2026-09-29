@@ -118,8 +118,14 @@ export default function ProductoDetalle({ params }: { params: Promise<{ id: stri
           </ul>
         </div>
 
-        <a href={waLink(whatsapp, `Hola! Te consulto por ${product.titulo}`)} target="_blank" rel="noreferrer" className="text-sm font-semibold text-accent underline underline-offset-2">
-          ¿Tenés dudas? Consultanos por WhatsApp →
+        <a
+          href={waLink(whatsapp, `Hola CARITO.SHOP! Me interesa ${product.titulo} (${formatMoney(precioFinal)}). ¿Está disponible? ${typeof window !== "undefined" ? window.location.href : ""}`)}
+          target="_blank"
+          rel="noreferrer"
+          className="rounded-xl px-4 py-3 text-sm font-semibold text-white text-center"
+          style={{ background: "#25D366" }}
+        >
+          💬 Consultar este producto por WhatsApp
         </a>
       </div>
 

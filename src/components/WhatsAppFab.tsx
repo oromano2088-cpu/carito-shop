@@ -1,0 +1,30 @@
+"use client";
+
+import { usePathname } from "next/navigation";
+import { useWhatsapp } from "@/lib/whatsapp";
+import { waLink } from "@/lib/utils";
+
+// Botón flotante de WhatsApp en toda la tienda (no en el panel admin ni en el checkout).
+export function WhatsAppFab() {
+  const pathname = usePathname() || "/";
+  const whatsapp = useWhatsapp();
+  if (pathname.startsWith("/admin") || pathname.startsWith("/checkout")) return null;
+  const enProducto = pathname.startsWith("/producto/");
+  return (
+    <a
+      href={waLink(whatsapp, "Hola CARITO.SHOP! Quiero hacer una consulta")}
+      target="_blank"
+      rel="noreferrer"
+      aria-label="Escribinos por WhatsApp"
+      className={
+        "fixed right-4 z-50 h-14 w-14 rounded-full shadow-lg flex items-center justify-center active:scale-95 transition " +
+        (enProducto ? "bottom-40" : "bottom-24")
+      }
+      style={{ background: "#25D366" }}
+    >
+      <svg viewBox="0 0 32 32" width="30" height="30" fill="#fff" aria-hidden="true">
+        <path d="M16.04 3C9.4 3 4 8.36 4 14.97c0 2.11.56 4.17 1.62 5.99L4 29l8.25-1.6a12.1 12.1 0 0 0 3.79.6h.01C22.68 28 28 22.64 28 16.03 28 9.42 22.68 3 16.04 3Zm0 22.9c-1.2 0-2.38-.2-3.5-.6l-.25-.09-4.9.95.98-4.73-.16-.26a9.8 9.8 0 0 1-1.5-5.2c0-5.44 4.44-9.87 9.9-9.87 5.45 0 9.88 4.43 9.88 9.87 0 5.5-4.43 9.93-9.9 9.93Zm5.43-7.4c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.17-.17.2-.35.22-.65.07-.3-.15-1.25-.46-2.38-1.47a8.9 8.9 0 0 1-1.65-2.05c-.17-.3 0-.46.13-.6.13-.13.3-.35.45-.52.15-.18.2-.3.3-.5.1-.2.05-.37-.02-.52-.08-.15-.67-1.62-.92-2.22-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.8.37-.27.3-1.04 1.02-1.04 2.48 0 1.47 1.07 2.88 1.22 3.08.15.2 2.1 3.2 5.08 4.49.71.3 1.27.49 1.7.63.72.23 1.37.2 1.88.12.57-.09 1.76-.72 2.01-1.42.25-.7.25-1.3.17-1.42-.07-.13-.27-.2-.57-.35Z"/>
+      </svg>
+    </a>
+  );
+}

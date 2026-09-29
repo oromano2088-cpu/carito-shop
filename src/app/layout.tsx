@@ -2,7 +2,8 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AppProvider } from "@/lib/store-context";
 import { IdentityModal } from "@/components/IdentityModal";
-import { SITE_URL, SITE_NAME, SITE_DESCRIPTION } from "@/lib/site";
+import { SITE_URL, SITE_NAME, SITE_DESCRIPTION, GOOGLE_MAPS_URL, GOOGLE_SITE_VERIFICATION } from "@/lib/site";
+import { WhatsAppFab } from "@/components/WhatsAppFab";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -20,6 +21,7 @@ export const metadata: Metadata = {
   },
   twitter: { card: "summary", title: SITE_NAME, description: SITE_DESCRIPTION },
   manifest: "/manifest.json",
+  ...(GOOGLE_SITE_VERIFICATION ? { verification: { google: GOOGLE_SITE_VERIFICATION } } : {}),
   appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "CARITO.SHOP" },
   icons: {
     icon: [
@@ -53,12 +55,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               description: SITE_DESCRIPTION,
               areaServed: "AR",
               currenciesAccepted: "ARS",
+              hasMap: GOOGLE_MAPS_URL,
+              sameAs: [GOOGLE_MAPS_URL],
             }),
           }}
         />
         <AppProvider>
           {children}
           <IdentityModal />
+          <WhatsAppFab />
         </AppProvider>
       </body>
     </html>

@@ -6,6 +6,7 @@ import { CATEGORIAS } from "@/lib/seed-data";
 import { StoreHeader } from "@/components/StoreHeader";
 import { ProductCard } from "@/components/ProductCard";
 import { BottomNav } from "@/components/BottomNav";
+import { StoreInfo } from "@/components/StoreInfo";
 
 export default function HomePage() {
   const { products } = useApp();
@@ -58,6 +59,8 @@ export default function HomePage() {
             )}
           </div>
         </div>
+
+        <StoreInfo />
       </div>
       <BottomNav />
     </main>
