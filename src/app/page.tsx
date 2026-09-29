@@ -21,7 +21,15 @@ export default function HomePage() {
     });
   }, [products, search, categoria]);
 
-  const enOferta = filtered.filter((p) => p.precioOferta);
+  // Ofertas por tiempo limitado: descuento especial CON fecha de fin (las vencidas ya no llegan acá).
+  const enOferta = filtered
+    .filter((p) => p.precioOferta && p.ofertaHasta)
+    .sort((a, b) => new Date(a.ofertaHasta!).getTime() - new Date(b.ofertaHasta!).getTime());
+
+  // Novedades: los últimos 10 productos ingresados o modificados.
+  const novedades = [...filtered]
+    .sort((a, b) => new Date(b.actualizadoEn || b.creadoEn).getTime() - new Date(a.actualizadoEn || a.creadoEn).getTime())
+    .slice(0, 10);
 
   return (
     <main className="flex-1 pb-24">
@@ -33,6 +41,19 @@ export default function HomePage() {
         onCategoria={setCategoria}
       />
       <div className="mx-auto max-w-lg px-4 py-4 flex flex-col gap-6">
+        {novedades.length > 0 && !search && !categoria && (
+          <div className="-mx-4 px-4">
+            <h2 className="text-sm font-bold text-muted mb-2 uppercase tracking-wide">🆕 Novedades</h2>
+            <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
+              {novedades.map((p) => (
+                <div key={p.id} className="min-w-[78%]">
+                  <ProductCard product={p} />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {enOferta.length > 0 && !search && !categoria && (
           <div className="-mx-4 px-4">
             <h2 className="text-sm font-bold text-muted mb-2 uppercase tracking-wide">⚡ Ofertas por tiempo limitado</h2>

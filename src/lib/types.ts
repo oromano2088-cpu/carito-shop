@@ -26,6 +26,7 @@ export interface Product {
   status: ProductStatus;
   vendidos: number;
   creadoEn: string;
+  actualizadoEn?: string; // último cambio real (precio, fotos, datos, reposición)
   // --- Engagement social (estilo Instagram) ---
   likes: number;
   guardados: number;

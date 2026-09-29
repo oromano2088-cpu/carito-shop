@@ -2,7 +2,17 @@ import { Product, Customer, Order, Coupon, TargetedOffer, AIReport } from "./typ
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+// Una oferta solo vale si el precio de oferta es menor al normal y no está vencida.
+function ofertaVigente(r: any): boolean {
+  if (r.precio_oferta == null) return false;
+  const po = Number(r.precio_oferta);
+  if (!(po > 0 && po < Number(r.precio))) return false;
+  if (r.oferta_hasta && new Date(r.oferta_hasta).getTime() <= Date.now()) return false;
+  return true;
+}
+
 export function rowToProduct(r: any): Product {
+  const oferta = ofertaVigente(r);
   return {
     id: r.id,
     titulo: r.titulo,
@@ -10,8 +20,8 @@ export function rowToProduct(r: any): Product {
     descripcion: r.descripcion,
     caracteristicas: r.caracteristicas ?? [],
     precio: Number(r.precio),
-    precioOferta: r.precio_oferta != null ? Number(r.precio_oferta) : undefined,
-    ofertaHasta: r.oferta_hasta ?? undefined,
+    precioOferta: oferta ? Number(r.precio_oferta) : undefined,
+    ofertaHasta: oferta ? r.oferta_hasta ?? undefined : undefined,
     imagen: r.imagen,
     imagenes: r.imagenes ?? undefined,
     stock: r.stock,
@@ -22,6 +32,7 @@ export function rowToProduct(r: any): Product {
     status: r.status,
     vendidos: r.vendidos,
     creadoEn: r.creado_en,
+    actualizadoEn: r.actualizado_en ?? r.creado_en,
     likes: r.likes,
     guardados: r.guardados,
     compartidos: r.compartidos,
