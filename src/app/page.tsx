@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useApp } from "@/lib/store-context";
-import { CATEGORIAS } from "@/lib/seed-data";
+import { useCategorias } from "@/lib/categorias";
 import { StoreHeader } from "@/components/StoreHeader";
 import { ProductCard } from "@/components/ProductCard";
 import { BottomNav } from "@/components/BottomNav";
@@ -12,6 +12,14 @@ export default function HomePage() {
   const { products } = useApp();
   const [search, setSearch] = useState("");
   const [categoria, setCategoria] = useState("");
+  const { categorias: todasCategorias } = useCategorias();
+  // En la tienda solo se muestran las categorías que tienen productos visibles.
+  const categoriasConProductos = useMemo(() => {
+    const usadas = new Set(products.filter((p) => p.status !== "pausado").map((p) => p.categoria));
+    const ordenadas = todasCategorias.filter((c) => usadas.has(c));
+    const extra = [...usadas].filter((c) => c && !todasCategorias.includes(c));
+    return [...ordenadas, ...extra];
+  }, [products, todasCategorias]);
 
   const filtered = useMemo(() => {
     return products.filter((p) => p.status !== "pausado").filter((p) => {
@@ -36,7 +44,7 @@ export default function HomePage() {
       <StoreHeader
         search={search}
         onSearch={setSearch}
-        categorias={CATEGORIAS}
+        categorias={categoriasConProductos}
         categoriaActiva={categoria}
         onCategoria={setCategoria}
       />

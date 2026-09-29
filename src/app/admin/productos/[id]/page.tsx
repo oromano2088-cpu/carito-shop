@@ -3,7 +3,7 @@
 import { use, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/lib/store-context";
-import { CATEGORIAS } from "@/lib/seed-data";
+import { CategoriaSelect } from "@/components/CategoriaSelect";
 import { Button, Badge } from "@/components/ui";
 import { ImageUploader } from "@/components/ImageUploader";
 import { Product, ProductStatus, ProductVariant } from "@/lib/types";
@@ -101,11 +101,7 @@ function ProductForm({ product }: { product: Product }) {
 
       <div className="grid grid-cols-2 gap-3">
         <Field label="Categoría">
-          <select value={categoria} onChange={(e) => setCategoria(e.target.value)} className="input">
-            {CATEGORIAS.map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
+          <CategoriaSelect value={categoria} onChange={setCategoria} />
         </Field>
         <Field label="Estado">
           <select value={status} onChange={(e) => setStatus(e.target.value as ProductStatus)} className="input">

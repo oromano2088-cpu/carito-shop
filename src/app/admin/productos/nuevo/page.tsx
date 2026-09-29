@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/lib/store-context";
-import { CATEGORIAS } from "@/lib/seed-data";
+import { CategoriaSelect } from "@/components/CategoriaSelect";
 import { Button, Badge } from "@/components/ui";
 import { ImageUploader } from "@/components/ImageUploader";
 
@@ -49,34 +49,23 @@ export default function NuevoProducto() {
   const [autocompletado, setAutocompletado] = useState(false);
 
   const [titulo, setTitulo] = useState("");
-  const [categoria, setCategoria] = useState(CATEGORIAS[0]);
+  const [categoria, setCategoria] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [caracteristicas, setCaracteristicas] = useState("");
   const [precio, setPrecio] = useState("");
   const [stock, setStock] = useState("10");
-  const [garantia, setGarantia] = useState("12");
+  const [garantia, setGarantia] = useState("0");
   const [guardando, setGuardando] = useState(false);
 
   const onImagesChange = (imgs: string[]) => {
     const isFirstImage = imagenes.length === 0 && imgs.length > 0;
     setImagenes(imgs);
-    if (isFirstImage && !autocompletado) {
-      setAnalizando(true);
-      setTimeout(() => {
-        const t = AI_TEMPLATES[Math.floor(Math.random() * AI_TEMPLATES.length)];
-        setTitulo((v) => v || t.titulo);
-        setCategoria((v) => (v === CATEGORIAS[0] ? t.categoria : v));
-        setDescripcion((v) => v || t.descripcion);
-        setCaracteristicas((v) => v || t.caracteristicas.join(", "));
-        setPrecio((v) => v || String(t.precioSugerido));
-        setAnalizando(false);
-        setAutocompletado(true);
-      }, 1400);
-    }
+    // El autocompletado "con IA" inventaba título, categoría y precio al azar: desactivado.
+    void isFirstImage;
   };
 
   const submit = () => {
-    if (!titulo || !precio || imagenes.length === 0) return;
+    if (!titulo || !precio || !categoria || imagenes.length === 0) return;
     setGuardando(true);
     addProduct({
       titulo,
@@ -121,11 +110,7 @@ export default function NuevoProducto() {
       </Field>
 
       <Field label="Categoría">
-        <select value={categoria} onChange={(e) => setCategoria(e.target.value)} className="input">
-          {CATEGORIAS.map((c) => (
-            <option key={c} value={c}>{c}</option>
-          ))}
-        </select>
+        <CategoriaSelect value={categoria} onChange={setCategoria} />
       </Field>
 
       <Field label="Descripción">
