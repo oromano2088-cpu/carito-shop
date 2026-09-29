@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 // 🔒 PIN de acceso al panel admin. Cambialo por el que quieras usar.
 const ADMIN_PIN = "2580";
 const SESSION_KEY = "carito_admin_unlocked";
+export const PIN_KEY = "carito_admin_pin";
 
 export function AdminGate({ children }: { children: React.ReactNode }) {
   const [checked, setChecked] = useState(false);
@@ -22,6 +23,7 @@ export function AdminGate({ children }: { children: React.ReactNode }) {
     if (pin.length === 4) {
       if (pin === ADMIN_PIN) {
         sessionStorage.setItem(SESSION_KEY, "1");
+        sessionStorage.setItem(PIN_KEY, pin);
         setUnlocked(true);
         setError(false);
       } else {
@@ -93,5 +95,6 @@ export function AdminGate({ children }: { children: React.ReactNode }) {
 
 export function lockAdmin() {
   sessionStorage.removeItem(SESSION_KEY);
+  sessionStorage.removeItem(PIN_KEY);
   window.location.href = "/";
 }

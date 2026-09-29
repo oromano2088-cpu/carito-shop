@@ -6,11 +6,12 @@ import { useApp } from "@/lib/store-context";
 import { formatMoney, waLink } from "@/lib/utils";
 import { Button, Badge } from "@/components/ui";
 import { Order } from "@/lib/types";
-import { WHATSAPP_NUMBER } from "@/lib/site";
+import { useWhatsapp } from "@/lib/whatsapp";
 
 const STEPS = ["Datos", "Entrega", "Pago", "Listo"] as const;
 
 export default function CheckoutPage() {
+  const whatsapp = useWhatsapp();
   const { cart, products, cartTotal, checkout, identity } = useApp();
   const [step, setStep] = useState(0);
   const [order, setOrder] = useState<Order | null>(null);
@@ -155,7 +156,7 @@ export default function CheckoutPage() {
               </p>
             </div>
             <a
-              href={waLink(WHATSAPP_NUMBER, `Hola! Acabo de hacer el pedido #${order.id} por ${formatMoney(order.total)}. Quiero coordinar la entrega.`)}
+              href={waLink(whatsapp, `Hola! Acabo de hacer el pedido #${order.id} por ${formatMoney(order.total)}. Quiero coordinar la entrega.`)}
               target="_blank"
               rel="noreferrer"
               className="w-full"

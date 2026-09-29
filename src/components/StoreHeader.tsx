@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { WHATSAPP_NUMBER } from "@/lib/site";
+import { useWhatsapp } from "@/lib/whatsapp";
 
 export function StoreHeader({
   search,
@@ -16,6 +16,7 @@ export function StoreHeader({
   categoriaActiva?: string;
   onCategoria?: (c: string) => void;
 }) {
+  const whatsapp = useWhatsapp();
   return (
     <header className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border">
       <div className="mx-auto max-w-lg px-4 pt-4 pb-3 flex items-center justify-between">
@@ -34,7 +35,7 @@ export function StoreHeader({
             🔒 Admin
           </Link>
           <a
-            href={`https://wa.me/${WHATSAPP_NUMBER}?text=Hola!%20Quiero%20hacer%20una%20consulta`}
+            href={`https://wa.me/${whatsapp}?text=Hola!%20Quiero%20hacer%20una%20consulta`}
             target="_blank"
             rel="noreferrer"
             className="h-9 w-9 flex items-center justify-center rounded-full bg-surface-2 border border-border text-lg"

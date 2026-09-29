@@ -7,9 +7,10 @@ import { formatMoney, waLink, productImages } from "@/lib/utils";
 import { Badge, CountdownChip, IconButton, Button } from "@/components/ui";
 import { BottomNav } from "@/components/BottomNav";
 import { ImageCarousel } from "@/components/ImageCarousel";
-import { WHATSAPP_NUMBER } from "@/lib/site";
+import { useWhatsapp } from "@/lib/whatsapp";
 
 export default function ProductoDetalle({ params }: { params: Promise<{ id: string }> }) {
+  const whatsapp = useWhatsapp();
   const { id } = use(params);
   const { products, toggleLike, toggleSave, isLiked, isSaved, addToCart, registerShare, registerView } = useApp();
   const product = products.find((p) => p.id === id);
@@ -117,7 +118,7 @@ export default function ProductoDetalle({ params }: { params: Promise<{ id: stri
           </ul>
         </div>
 
-        <a href={waLink(WHATSAPP_NUMBER, `Hola! Te consulto por ${product.titulo}`)} target="_blank" rel="noreferrer" className="text-sm font-semibold text-accent underline underline-offset-2">
+        <a href={waLink(whatsapp, `Hola! Te consulto por ${product.titulo}`)} target="_blank" rel="noreferrer" className="text-sm font-semibold text-accent underline underline-offset-2">
           ¿Tenés dudas? Consultanos por WhatsApp →
         </a>
       </div>

@@ -12,6 +12,7 @@ const items = [
   { href: "/admin/clientes", label: "Clientes", icon: "👥" },
   { href: "/admin/marketing", label: "Marketing", icon: "🎯" },
   { href: "/admin/ia", label: "Asistente IA", icon: "✨" },
+  { href: "/admin/ajustes", label: "Ajustes", icon: "⚙️" },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -44,7 +45,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div className="flex-1 pb-20 mx-auto w-full max-w-3xl">{children}</div>
 
         <nav className="fixed bottom-0 inset-x-0 z-40 border-t border-border bg-surface/95 backdrop-blur">
-          <div className="mx-auto max-w-3xl grid grid-cols-6">
+          <div className="mx-auto max-w-3xl grid grid-cols-7">
             {items.map((it) => {
               const active = pathname === it.href;
               return (
