@@ -6,7 +6,7 @@
 export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://carito-shop-tienda.vercel.app").replace(/\/$/, "");
 export const SITE_NAME = "CARITO.SHOP";
 // Ficha de la tienda en Google Maps (reseñas, ubicación).
-export const GOOGLE_MAPS_URL = "https://maps.app.goo.gl/SySkiuEDdS5sLaor5";
+export const GOOGLE_MAPS_URL = "https://maps.app.goo.gl/mrWJGecsdbxnxHF49";
 // Código de verificación de Google Search Console (etiqueta HTML "google-site-verification").
 export const GOOGLE_SITE_VERIFICATION = process.env.NEXT_PUBLIC_GSC_VERIFICATION || "";
 export const SITE_DESCRIPTION =
