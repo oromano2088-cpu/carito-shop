@@ -6,6 +6,7 @@ import { useApp } from "@/lib/store-context";
 import { formatMoney, waLink } from "@/lib/utils";
 import { Button, Badge } from "@/components/ui";
 import { Order } from "@/lib/types";
+import { WHATSAPP_NUMBER } from "@/lib/site";
 
 const STEPS = ["Datos", "Entrega", "Pago", "Listo"] as const;
 
@@ -154,7 +155,7 @@ export default function CheckoutPage() {
               </p>
             </div>
             <a
-              href={waLink("+5491100000000", `Hola! Acabo de hacer el pedido #${order.id} por ${formatMoney(order.total)}. Quiero coordinar la entrega.`)}
+              href={waLink(WHATSAPP_NUMBER, `Hola! Acabo de hacer el pedido #${order.id} por ${formatMoney(order.total)}. Quiero coordinar la entrega.`)}
               target="_blank"
               rel="noreferrer"
               className="w-full"

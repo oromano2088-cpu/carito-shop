@@ -7,6 +7,7 @@ import { formatMoney, waLink, productImages } from "@/lib/utils";
 import { Badge, CountdownChip, IconButton, Button } from "@/components/ui";
 import { BottomNav } from "@/components/BottomNav";
 import { ImageCarousel } from "@/components/ImageCarousel";
+import { WHATSAPP_NUMBER } from "@/lib/site";
 
 export default function ProductoDetalle({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -66,7 +67,7 @@ export default function ProductoDetalle({ params }: { params: Promise<{ id: stri
       <div className="mx-auto max-w-lg px-4 py-5 flex flex-col gap-3">
         <div className="flex gap-2">
           <Badge tone="accent">{product.categoria}</Badge>
-          <Badge>{product.garantiaMeses} meses de garantía</Badge>
+          {product.garantiaMeses > 0 && <Badge>{product.garantiaMeses} meses de garantía</Badge>}
         </div>
         <h1 className="text-xl font-extrabold leading-snug">{product.titulo}</h1>
         <div className="flex items-center gap-3 text-xs text-muted">
@@ -79,7 +80,7 @@ export default function ProductoDetalle({ params }: { params: Promise<{ id: stri
           <span className="text-2xl font-extrabold">{formatMoney(precioFinal)}</span>
           {product.precioOferta && <span className="text-muted line-through">{formatMoney(product.precio)}</span>}
         </div>
-        <span className="text-xs text-muted">en 6 cuotas sin interés · SKU {product.sku}</span>
+        <span className="text-xs text-muted">SKU {product.sku}</span>
 
         {product.variantes && (
           <div>
@@ -116,7 +117,7 @@ export default function ProductoDetalle({ params }: { params: Promise<{ id: stri
           </ul>
         </div>
 
-        <a href={waLink("+5491100000000", `Hola! Te consulto por ${product.titulo}`)} target="_blank" rel="noreferrer" className="text-sm font-semibold text-accent underline underline-offset-2">
+        <a href={waLink(WHATSAPP_NUMBER, `Hola! Te consulto por ${product.titulo}`)} target="_blank" rel="noreferrer" className="text-sm font-semibold text-accent underline underline-offset-2">
           ¿Tenés dudas? Consultanos por WhatsApp →
         </a>
       </div>

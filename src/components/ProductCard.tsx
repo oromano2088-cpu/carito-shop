@@ -84,7 +84,6 @@ export function ProductCard({ product }: { product: Product }) {
           <span className="text-xl font-extrabold">{formatMoney(precioFinal)}</span>
           {product.precioOferta && <span className="text-sm text-muted line-through">{formatMoney(product.precio)}</span>}
         </div>
-        <span className="text-xs text-muted -mt-2">en 6 cuotas sin interés</span>
 
         {product.variantes && (
           <div className="flex gap-2 flex-wrap">

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { WHATSAPP_NUMBER } from "@/lib/site";
 
 export function StoreHeader({
   search,
@@ -33,7 +34,7 @@ export function StoreHeader({
             🔒 Admin
           </Link>
           <a
-            href="https://wa.me/5491100000000?text=Hola!%20Quiero%20hacer%20una%20consulta"
+            href={`https://wa.me/${WHATSAPP_NUMBER}?text=Hola!%20Quiero%20hacer%20una%20consulta`}
             target="_blank"
             rel="noreferrer"
             className="h-9 w-9 flex items-center justify-center rounded-full bg-surface-2 border border-border text-lg"
