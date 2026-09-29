@@ -14,7 +14,7 @@ export default function HomePage() {
   const [categoria, setCategoria] = useState("");
 
   const filtered = useMemo(() => {
-    return products.filter((p) => {
+    return products.filter((p) => p.status !== "pausado").filter((p) => {
       const matchSearch = p.titulo.toLowerCase().includes(search.toLowerCase());
       const matchCat = !categoria || p.categoria === categoria;
       return matchSearch && matchCat;

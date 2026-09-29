@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useApp } from "@/lib/store-context";
 import { formatMoney, waLink, productImages } from "@/lib/utils";
@@ -9,7 +9,8 @@ import { BottomNav } from "@/components/BottomNav";
 import { ImageCarousel } from "@/components/ImageCarousel";
 
 export default function FeedPage() {
-  const { products, toggleLike, toggleSave, isLiked, isSaved, addToCart, registerShare, registerView } = useApp();
+  const { products: allProducts, toggleLike, toggleSave, isLiked, isSaved, addToCart, registerShare, registerView } = useApp();
+  const products = useMemo(() => allProducts.filter((p) => p.status !== "pausado"), [allProducts]);
   const containerRef = useRef<HTMLDivElement>(null);
   const [popId, setPopId] = useState<string | null>(null);
 

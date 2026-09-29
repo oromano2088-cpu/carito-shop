@@ -10,7 +10,7 @@ export const GOOGLE_MAPS_URL = "https://maps.app.goo.gl/mrWJGecsdbxnxHF49";
 // Código de verificación de Google Search Console (etiqueta HTML "google-site-verification").
 export const GOOGLE_SITE_VERIFICATION = process.env.NEXT_PUBLIC_GSC_VERIFICATION || "";
 export const SITE_DESCRIPTION =
-  "Tienda online de tecnología y accesorios en Argentina. Mirá el catálogo con precios y stock actualizados y consultanos o comprá por WhatsApp.";
+  "Tienda online en Argentina: tecnología, accesorios y productos para el hogar. Mirá el catálogo con precios y stock actualizados y comprá por WhatsApp. Pagás en efectivo, transferencia o Mercado Pago.";
 export const WHATSAPP_NUMBER = (process.env.NEXT_PUBLIC_WHATSAPP || "5491133851488").replace(/[^0-9]/g, "");
 
 // Convierte lo que se escriba (ej. "11 4176-8461", "011 15 4176 8461", "+54 9 11...")
@@ -29,3 +29,6 @@ export function normalizeWhatsapp(input: string): string {
   else if (d.length === 12 && d.startsWith("15", 4)) d = d.slice(0, 4) + d.slice(6);
   return d.length === 10 ? "549" + d : "";
 }
+
+// Medios de pago aceptados (confirmados por el dueño).
+export const MEDIOS_DE_PAGO = ["Efectivo", "Transferencia bancaria", "Mercado Pago"];

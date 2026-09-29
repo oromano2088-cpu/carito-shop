@@ -1,6 +1,6 @@
 # CARITO.SHOP
 
-> Tienda online de tecnología y accesorios en Argentina. El catálogo muestra precios en pesos argentinos (ARS) y el stock disponible de cada producto. Las consultas y las compras se coordinan por WhatsApp.
+> Tienda online en Argentina: tecnología, accesorios y productos para el hogar. El catálogo muestra precios en pesos argentinos (ARS) y el stock disponible de cada producto. Las consultas y las compras se coordinan por WhatsApp.
 
 ## Catálogo
 - [Inicio y catálogo completo](https://carito-shop-tienda.vercel.app/): todos los productos activos, con precio, ofertas vigentes y stock.
@@ -10,3 +10,6 @@
 ## Cómo comprar
 - Cada página de producto tiene un botón para consultar o comprar por WhatsApp.
 - Los precios publicados están en pesos argentinos.
+- Medios de pago: efectivo, transferencia bancaria o Mercado Pago.
+- La entrega o el retiro se coordina por WhatsApp.
+- Ficha en Google Maps: https://maps.app.goo.gl/mrWJGecsdbxnxHF49

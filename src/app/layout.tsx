@@ -7,7 +7,7 @@ import { WhatsAppFab } from "@/components/WhatsAppFab";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: "CARITO.SHOP — Tienda de tecnología y accesorios en Argentina",
+  title: "CARITO.SHOP — Tecnología, accesorios y hogar en Argentina",
   description: SITE_DESCRIPTION,
   alternates: { canonical: "/" },
   openGraph: {
@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     url: SITE_URL,
     siteName: SITE_NAME,
     locale: "es_AR",
-    title: "CARITO.SHOP — Tienda de tecnología y accesorios",
+    title: "CARITO.SHOP — Tecnología, accesorios y hogar",
     description: SITE_DESCRIPTION,
     images: [{ url: "/icons/icon-512.png", width: 512, height: 512, alt: SITE_NAME }],
   },

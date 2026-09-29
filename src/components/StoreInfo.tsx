@@ -2,7 +2,7 @@
 
 import { useWhatsapp } from "@/lib/whatsapp";
 import { waLink } from "@/lib/utils";
-import { GOOGLE_MAPS_URL } from "@/lib/site";
+import { GOOGLE_MAPS_URL, MEDIOS_DE_PAGO } from "@/lib/site";
 
 // Bloque de confianza al pie de la portada: WhatsApp, ubicación y reseñas en Google.
 export function StoreInfo() {
@@ -21,6 +21,11 @@ export function StoreInfo() {
       >
         Escribinos por WhatsApp · {visible}
       </a>
+      <ul className="text-sm text-muted flex flex-col gap-1">
+        <li>💳 Pagás con {MEDIOS_DE_PAGO.join(", ").replace(/, ([^,]*)$/, " o $1")}.</li>
+        <li>📦 Coordinamos la entrega o el retiro por WhatsApp.</li>
+        <li>✅ Te respondemos las dudas antes de comprar.</li>
+      </ul>
       <div className="grid grid-cols-2 gap-2">
         <a href={GOOGLE_MAPS_URL} target="_blank" rel="noreferrer" className="rounded-xl px-3 py-2.5 text-sm font-semibold text-center bg-surface-2 border border-border">
           📍 Ver en Google Maps
