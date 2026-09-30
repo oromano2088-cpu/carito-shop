@@ -43,7 +43,7 @@ export default function ProductoDetalle({ params }: { params: Promise<{ id: stri
   return (
     <main className="flex-1 pb-28">
       <div className="relative w-full aspect-square bg-surface-2">
-        <ImageCarousel images={productImages(product)} alt={product.titulo} />
+        <ImageCarousel images={productImages(product)} alt={product.titulo} fit="contain" />
         <Link href="/" className="absolute top-4 left-4 h-9 w-9 rounded-full bg-black/40 backdrop-blur flex items-center justify-center text-white z-10">
           ←
         </Link>

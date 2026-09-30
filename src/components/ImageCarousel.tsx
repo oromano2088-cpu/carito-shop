@@ -2,11 +2,38 @@
 
 import { useRef, useState } from "react";
 
-/** Carrusel de fotos de producto (swipe horizontal + puntos indicadores). Si hay una
- * sola imagen, se comporta como un <img> normal sin overhead extra. */
-export function ImageCarousel({ images, alt }: { images: string[]; alt: string }) {
+/** Una foto de producto. En modo "contain" se ve el producto entero (sin zoom) y el
+ * espacio sobrante se rellena con la misma foto desenfocada, así la pantalla queda llena. */
+function Slide({ url, alt, contain, padClass, snap }: { url: string; alt: string; contain: boolean; padClass: string; snap: boolean }) {
+  if (!contain) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={url} alt={alt} className={`w-full h-full flex-shrink-0 object-cover ${snap ? "snap-start" : "absolute inset-0"}`} loading="lazy" />;
+  }
+  return (
+    <div className={`relative w-full h-full flex-shrink-0 overflow-hidden bg-black ${snap ? "snap-start" : "absolute inset-0"}`}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={url} alt="" aria-hidden="true" className="absolute inset-0 w-full h-full object-cover blur-2xl scale-110 opacity-50" loading="lazy" />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={url} alt={alt} className={`relative w-full h-full object-contain ${padClass}`} loading="lazy" />
+    </div>
+  );
+}
+
+/** Carrusel de fotos de producto (swipe horizontal + puntos indicadores). */
+export function ImageCarousel({
+  images,
+  alt,
+  fit = "cover",
+  padClass = "",
+}: {
+  images: string[];
+  alt: string;
+  fit?: "cover" | "contain";
+  padClass?: string;
+}) {
   const [index, setIndex] = useState(0);
   const ref = useRef<HTMLDivElement>(null);
+  const contain = fit === "contain";
 
   const onScroll = () => {
     const el = ref.current;
@@ -17,16 +44,14 @@ export function ImageCarousel({ images, alt }: { images: string[]; alt: string }
   if (images.length === 0) return null;
 
   if (images.length === 1) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={images[0]} alt={alt} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />;
+    return <Slide url={images[0]} alt={alt} contain={contain} padClass={padClass} snap={false} />;
   }
 
   return (
     <div className="absolute inset-0">
       <div ref={ref} onScroll={onScroll} className="w-full h-full flex overflow-x-auto snap-x snap-mandatory no-scrollbar">
         {images.map((url, i) => (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img key={i} src={url} alt={`${alt} ${i + 1}`} className="w-full h-full flex-shrink-0 snap-start object-cover" loading="lazy" />
+          <Slide key={i} url={url} alt={`${alt} ${i + 1}`} contain={contain} padClass={padClass} snap />
         ))}
       </div>
       <div className="absolute bottom-2 inset-x-0 flex items-center justify-center gap-1.5 pointer-events-none">

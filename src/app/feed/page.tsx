@@ -64,7 +64,7 @@ export default function FeedPage() {
                   setTimeout(() => setPopId(null), 700);
                 }}
               >
-                <ImageCarousel images={productImages(p)} alt={p.titulo} />
+                <ImageCarousel images={productImages(p)} alt={p.titulo} fit="contain" padClass="pt-14 pb-56" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-black/40 pointer-events-none" />
               </div>
 
