@@ -4,6 +4,7 @@ import { AppProvider } from "@/lib/store-context";
 import { IdentityModal } from "@/components/IdentityModal";
 import { SITE_URL, SITE_NAME, SITE_DESCRIPTION, GOOGLE_MAPS_URL, GOOGLE_SITE_VERIFICATION } from "@/lib/site";
 import { WhatsAppFab } from "@/components/WhatsAppFab";
+import { Guia } from "@/components/Guia";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -64,6 +65,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {children}
           <IdentityModal />
           <WhatsAppFab />
+          <Guia />
         </AppProvider>
       </body>
     </html>

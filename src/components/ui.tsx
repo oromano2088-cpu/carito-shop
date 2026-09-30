@@ -45,6 +45,7 @@ export function IconButton({
     <button
       onClick={onClick}
       aria-label={label}
+      title={label}
       className={cn(
         "flex items-center justify-center h-10 w-10 rounded-full transition active:scale-90",
         active ? "bg-accent text-white" : "bg-surface-2 text-foreground border border-border"
@@ -89,5 +90,24 @@ export function Button({
     >
       {children}
     </button>
+  );
+}
+
+/** Ícono "Compartir": avión de papel (el que usa Instagram/Telegram para enviar). */
+export function ShareIcon({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <path d="M22 2 11 13" />
+      <path d="M22 2 15 22l-4-9-9-4 20-7z" />
+    </svg>
+  );
+}
+
+/** Ícono "Guardar": marcador, relleno cuando está guardado. */
+export function BookmarkIcon({ filled, className = "h-5 w-5" }: { filled?: boolean; className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+    </svg>
   );
 }

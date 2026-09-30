@@ -4,10 +4,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useApp } from "@/lib/store-context";
 import { formatMoney, waLink, productImages } from "@/lib/utils";
-import { Badge, CountdownChip, IconButton, Button } from "@/components/ui";
+import { Badge, CountdownChip, IconButton, Button, ShareIcon, BookmarkIcon } from "@/components/ui";
 import { BottomNav } from "@/components/BottomNav";
 import { ImageCarousel } from "@/components/ImageCarousel";
 import { useWhatsapp } from "@/lib/whatsapp";
+import { AyudaButton } from "@/components/Guia";
 
 export default function FeedPage() {
   const { products: allProducts, toggleLike, toggleSave, isLiked, isSaved, addToCart, registerShare, registerView } = useApp();
@@ -41,9 +42,12 @@ export default function FeedPage() {
         <span className="font-extrabold text-white tracking-tight">
           CARITO<span className="neon-text">.SHOP</span> · Feed
         </span>
-        <Link href="/" className="text-white text-sm bg-white/10 px-3 py-1.5 rounded-full backdrop-blur">
-          Ver catálogo
-        </Link>
+        <div className="flex items-center gap-2">
+          <AyudaButton dark />
+          <Link href="/" className="text-white text-sm bg-white/10 px-3 py-1.5 rounded-full backdrop-blur">
+            Ver catálogo
+          </Link>
+        </div>
       </div>
 
       <div
@@ -79,13 +83,13 @@ export default function FeedPage() {
                   <IconButton label="Me gusta" active={liked} onClick={() => toggleLike(p.id)}>
                     {liked ? "❤️" : "🤍"}
                   </IconButton>
-                  <span className="text-white text-xs font-semibold">{p.likes}</span>
+                  <span className="text-white text-xs font-semibold">{p.likes > 0 ? p.likes : "Me gusta"}</span>
                 </div>
                 <div className="flex flex-col items-center gap-1">
-                  <IconButton label="Guardar" active={saved} onClick={() => toggleSave(p.id)}>
-                    {saved ? "🔖" : "📑"}
+                  <IconButton label={saved ? "Guardado" : "Guardar para después"} active={saved} onClick={() => toggleSave(p.id)}>
+                    <BookmarkIcon filled={saved} />
                   </IconButton>
-                  <span className="text-white text-xs font-semibold">{p.guardados}</span>
+                  <span className="text-white text-xs font-semibold">{saved ? "Guardado" : "Guardar"}</span>
                 </div>
                 <div className="flex flex-col items-center gap-1">
                   <a
@@ -101,10 +105,10 @@ export default function FeedPage() {
                   <span className="text-white text-xs font-semibold">Consultar</span>
                 </div>
                 <div className="flex flex-col items-center gap-1">
-                  <IconButton label="Compartir por WhatsApp" onClick={() => share(p.id, p.titulo, precioFinal)}>
-                    ↗️
+                  <IconButton label="Compartir" onClick={() => share(p.id, p.titulo, precioFinal)}>
+                    <ShareIcon />
                   </IconButton>
-                  <span className="text-white text-xs font-semibold">{p.compartidos}</span>
+                  <span className="text-white text-xs font-semibold">Compartir</span>
                 </div>
               </div>
 

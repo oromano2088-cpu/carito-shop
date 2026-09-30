@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useWhatsapp } from "@/lib/whatsapp";
+import { AyudaButton } from "./Guia";
 
 export function StoreHeader({
   search,
@@ -27,6 +28,7 @@ export function StoreHeader({
           </span>
         </Link>
         <div className="flex items-center gap-2">
+          <AyudaButton />
           <Link
             href="/admin"
             className="flex items-center gap-1.5 h-9 px-3 rounded-full bg-surface-2 border border-border text-xs font-semibold"

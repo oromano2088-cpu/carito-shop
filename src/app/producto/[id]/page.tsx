@@ -4,7 +4,7 @@ import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { useApp } from "@/lib/store-context";
 import { formatMoney, waLink, productImages } from "@/lib/utils";
-import { Badge, CountdownChip, IconButton, Button } from "@/components/ui";
+import { Badge, CountdownChip, IconButton, Button, ShareIcon, BookmarkIcon } from "@/components/ui";
 import { BottomNav } from "@/components/BottomNav";
 import { ImageCarousel } from "@/components/ImageCarousel";
 import { useWhatsapp } from "@/lib/whatsapp";
@@ -51,11 +51,11 @@ export default function ProductoDetalle({ params }: { params: Promise<{ id: stri
           <IconButton label="Me gusta" active={liked} onClick={() => toggleLike(product.id)}>
             {liked ? "❤️" : "🤍"}
           </IconButton>
-          <IconButton label="Guardar" active={saved} onClick={() => toggleSave(product.id)}>
-            {saved ? "🔖" : "📑"}
+          <IconButton label={saved ? "Guardado" : "Guardar para después"} active={saved} onClick={() => toggleSave(product.id)}>
+            <BookmarkIcon filled={saved} />
           </IconButton>
-          <IconButton label="Compartir por WhatsApp" onClick={share}>
-            ↗️
+          <IconButton label="Compartir" onClick={share}>
+            <ShareIcon />
           </IconButton>
         </div>
         {product.ofertaHasta && !agotado && (

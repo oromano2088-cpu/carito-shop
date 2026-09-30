@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Product } from "@/lib/types";
 import { useApp } from "@/lib/store-context";
 import { formatMoney, waLink, productImages } from "@/lib/utils";
-import { Badge, CountdownChip, IconButton, Button } from "./ui";
+import { Badge, CountdownChip, IconButton, Button, ShareIcon, BookmarkIcon } from "./ui";
 import { ImageCarousel } from "./ImageCarousel";
 
 export function ProductCard({ product }: { product: Product }) {
@@ -60,11 +60,11 @@ export function ProductCard({ product }: { product: Product }) {
           <IconButton label="Me gusta" active={liked} onClick={() => toggleLike(product.id)}>
             {liked ? "❤️" : "🤍"}
           </IconButton>
-          <IconButton label="Guardar" active={saved} onClick={() => toggleSave(product.id)}>
-            {saved ? "🔖" : "📑"}
+          <IconButton label={saved ? "Guardado" : "Guardar para después"} active={saved} onClick={() => toggleSave(product.id)}>
+            <BookmarkIcon filled={saved} />
           </IconButton>
-          <IconButton label="Compartir por WhatsApp" onClick={share}>
-            ↗️
+          <IconButton label="Compartir" onClick={share}>
+            <ShareIcon />
           </IconButton>
         </div>
       </div>
