@@ -8,7 +8,8 @@ import { waLink } from "@/lib/utils";
 export function WhatsAppFab() {
   const pathname = usePathname() || "/";
   const whatsapp = useWhatsapp();
-  if (pathname.startsWith("/admin") || pathname.startsWith("/checkout")) return null;
+  // En el Feed no se muestra: ahí cada producto tiene su propio botón "Consultar".
+  if (pathname.startsWith("/admin") || pathname.startsWith("/checkout") || pathname.startsWith("/feed")) return null;
   const enProducto = pathname.startsWith("/producto/");
   return (
     <a

@@ -7,10 +7,12 @@ import { formatMoney, waLink, productImages } from "@/lib/utils";
 import { Badge, CountdownChip, IconButton, Button } from "@/components/ui";
 import { BottomNav } from "@/components/BottomNav";
 import { ImageCarousel } from "@/components/ImageCarousel";
+import { useWhatsapp } from "@/lib/whatsapp";
 
 export default function FeedPage() {
   const { products: allProducts, toggleLike, toggleSave, isLiked, isSaved, addToCart, registerShare, registerView } = useApp();
   const products = useMemo(() => allProducts.filter((p) => p.status !== "pausado"), [allProducts]);
+  const whatsapp = useWhatsapp();
   const containerRef = useRef<HTMLDivElement>(null);
   const [popId, setPopId] = useState<string | null>(null);
 
@@ -64,7 +66,7 @@ export default function FeedPage() {
                   setTimeout(() => setPopId(null), 700);
                 }}
               >
-                <ImageCarousel images={productImages(p)} alt={p.titulo} fit="contain" padClass="pt-14 pb-56" />
+                <ImageCarousel images={productImages(p)} alt={p.titulo} fit="contain" padClass="pt-14 pb-[18rem]" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-black/40 pointer-events-none" />
               </div>
 
@@ -72,7 +74,7 @@ export default function FeedPage() {
                 <span className="heart-pop absolute inset-0 flex items-center justify-center text-8xl pointer-events-none">❤️</span>
               )}
 
-              <div className="absolute right-3 bottom-28 flex flex-col gap-4 items-center z-20">
+              <div className="absolute right-3 top-20 flex flex-col gap-4 items-center z-20">
                 <div className="flex flex-col items-center gap-1">
                   <IconButton label="Me gusta" active={liked} onClick={() => toggleLike(p.id)}>
                     {liked ? "❤️" : "🤍"}
@@ -86,6 +88,19 @@ export default function FeedPage() {
                   <span className="text-white text-xs font-semibold">{p.guardados}</span>
                 </div>
                 <div className="flex flex-col items-center gap-1">
+                  <a
+                    href={waLink(whatsapp, `Hola CARITO.SHOP! Me interesa ${p.titulo} (${formatMoney(precioFinal)}). ¿Está disponible?`)}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label="Consultar por WhatsApp"
+                    className="h-11 w-11 rounded-full flex items-center justify-center text-lg shadow"
+                    style={{ background: "#25D366" }}
+                  >
+                    💬
+                  </a>
+                  <span className="text-white text-xs font-semibold">Consultar</span>
+                </div>
+                <div className="flex flex-col items-center gap-1">
                   <IconButton label="Compartir por WhatsApp" onClick={() => share(p.id, p.titulo, precioFinal)}>
                     ↗️
                   </IconButton>
@@ -93,7 +108,7 @@ export default function FeedPage() {
                 </div>
               </div>
 
-              <div className="relative z-20 w-full px-4 pb-6 flex flex-col gap-2 text-white">
+              <div className="relative z-20 w-full px-4 pb-[calc(5rem+env(safe-area-inset-bottom))] flex flex-col gap-2 text-white">
                 <div className="flex gap-2">
                   <Badge tone="accent">{p.categoria}</Badge>
                   {p.precioOferta && <Badge tone="danger">-{Math.round((1 - p.precioOferta / p.precio) * 100)}%</Badge>}
