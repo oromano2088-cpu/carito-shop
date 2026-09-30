@@ -50,11 +50,11 @@ export default function HomePage() {
       />
       <div className="mx-auto max-w-lg px-4 py-4 flex flex-col gap-6">
         {novedades.length > 0 && !search && !categoria && (
-          <div className="-mx-4 px-4">
+          <div>
             <h2 className="text-sm font-bold text-muted mb-2 uppercase tracking-wide">🆕 Novedades</h2>
-            <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
+            <div className="-mx-4 px-[7.5%] flex gap-3 overflow-x-auto no-scrollbar pb-1 snap-x snap-mandatory scroll-smooth">
               {novedades.map((p) => (
-                <div key={p.id} className="min-w-[78%]">
+                <div key={p.id} className="w-[85%] shrink-0 snap-center snap-always">
                   <ProductCard product={p} />
                 </div>
               ))}
@@ -63,11 +63,11 @@ export default function HomePage() {
         )}
 
         {enOferta.length > 0 && !search && !categoria && (
-          <div className="-mx-4 px-4">
+          <div>
             <h2 className="text-sm font-bold text-muted mb-2 uppercase tracking-wide">⚡ Ofertas por tiempo limitado</h2>
-            <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
+            <div className="-mx-4 px-[7.5%] flex gap-3 overflow-x-auto no-scrollbar pb-1 snap-x snap-mandatory scroll-smooth">
               {enOferta.map((p) => (
-                <div key={p.id} className="min-w-[78%]">
+                <div key={p.id} className="w-[85%] shrink-0 snap-center snap-always">
                   <ProductCard product={p} />
                 </div>
               ))}
