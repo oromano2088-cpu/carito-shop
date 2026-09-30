@@ -24,6 +24,21 @@ export function waLink(phone: string, message: string) {
   return `https://wa.me/${clean}?text=${encodeURIComponent(message)}`;
 }
 
+/** Abre el menú nativo de compartir del celular (WhatsApp, Instagram, copiar link...).
+ *  Si el navegador no lo soporta, abre WhatsApp directamente. */
+export async function shareProduct(titulo: string, precio: string, url: string) {
+  const text = `¡Mirá esto! ${titulo} a ${precio} 🔥`;
+  if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+    try {
+      await navigator.share({ title: titulo, text, url });
+      return;
+    } catch (e) {
+      if ((e as Error)?.name === "AbortError") return; // el cliente cerró el menú
+    }
+  }
+  window.open(waLink("", `${text}\n${url}`), "_blank");
+}
+
 export function timeLeft(iso?: string) {
   if (!iso) return null;
   const diff = new Date(iso).getTime() - Date.now();

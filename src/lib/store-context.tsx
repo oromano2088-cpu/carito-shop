@@ -427,13 +427,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // Compartir nunca pide datos: el cliente sale a otra app en el mismo toque
+  // y el cartel quedaba abierto por detrás. Solo se cuenta el compartido.
   const registerShare = useCallback((productId: string) => {
-    if (!identityRef.current) {
-      requestIdentity(() => performRegisterShare(productId));
-      return;
-    }
     performRegisterShare(productId);
-  }, [performRegisterShare, requestIdentity]);
+  }, [performRegisterShare]);
 
   const checkout: AppContextValue["checkout"] = useCallback((data) => {
     const sideEffects: {

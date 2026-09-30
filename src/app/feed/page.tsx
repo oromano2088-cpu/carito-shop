@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useApp } from "@/lib/store-context";
-import { formatMoney, waLink, productImages } from "@/lib/utils";
+import { formatMoney, waLink, productImages, shareProduct } from "@/lib/utils";
 import { Badge, CountdownChip, IconButton, Button, ShareIcon, BookmarkIcon } from "@/components/ui";
 import { BottomNav } from "@/components/BottomNav";
 import { ImageCarousel } from "@/components/ImageCarousel";
@@ -33,7 +33,7 @@ export default function FeedPage() {
   const share = (id: string, titulo: string, precio: number) => {
     registerShare(id);
     const url = typeof window !== "undefined" ? `${window.location.origin}/producto/${id}` : "";
-    window.open(waLink("", `¡Mirá esto! ${titulo} a ${formatMoney(precio)} 🔥\n${url}`), "_blank");
+    shareProduct(titulo, formatMoney(precio), url);
   };
 
   return (

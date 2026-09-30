@@ -28,7 +28,7 @@ const PASOS: Paso[] = [
   {
     icono: <ShareIcon className="h-10 w-10" />,
     titulo: "Compartir",
-    texto: "Tocá el avioncito para mandarle el producto a un amigo o familiar por WhatsApp, con foto, precio y link.",
+    texto: "Tocá el avioncito para mandarle el producto a un amigo o familiar por WhatsApp, Instagram o la app que quieras, con el precio y el link.",
   },
   {
     icono: <span className="text-4xl">💬</span>,

@@ -3,7 +3,7 @@
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { useApp } from "@/lib/store-context";
-import { formatMoney, waLink, productImages } from "@/lib/utils";
+import { formatMoney, waLink, productImages, shareProduct } from "@/lib/utils";
 import { Badge, CountdownChip, IconButton, Button, ShareIcon, BookmarkIcon } from "@/components/ui";
 import { BottomNav } from "@/components/BottomNav";
 import { ImageCarousel } from "@/components/ImageCarousel";
@@ -37,7 +37,7 @@ export default function ProductoDetalle({ params }: { params: Promise<{ id: stri
   const share = () => {
     registerShare(product.id);
     const url = typeof window !== "undefined" ? window.location.href : "";
-    window.open(waLink("", `¡Mirá esto! ${product.titulo} a ${formatMoney(precioFinal)} 🔥\n${url}`), "_blank");
+    shareProduct(product.titulo, formatMoney(precioFinal), url);
   };
 
   return (

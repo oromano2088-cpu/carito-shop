@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Product } from "@/lib/types";
 import { useApp } from "@/lib/store-context";
-import { formatMoney, waLink, productImages } from "@/lib/utils";
+import { formatMoney, waLink, productImages, shareProduct } from "@/lib/utils";
 import { Badge, CountdownChip, IconButton, Button, ShareIcon, BookmarkIcon } from "./ui";
 import { ImageCarousel } from "./ImageCarousel";
 
@@ -22,7 +22,7 @@ export function ProductCard({ product }: { product: Product }) {
   const share = () => {
     registerShare(product.id);
     const url = typeof window !== "undefined" ? `${window.location.origin}/producto/${product.id}` : "";
-    window.open(waLink("", `¡Mirá esto! ${product.titulo} a ${formatMoney(precioFinal)} 🔥\n${url}`), "_blank");
+    shareProduct(product.titulo, formatMoney(precioFinal), url);
   };
 
   return (
