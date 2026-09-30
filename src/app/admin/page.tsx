@@ -61,7 +61,8 @@ const normalizarCuenta = (str: string): string => {
 const fmt = (n: number) => "$" + Math.round(n).toLocaleString("es-AR");
 
 export default function AdminMobileCompleto() {
-  const [logueado, setLogueado] = useState(false);
+  // El acceso ya lo protege el PIN del panel (AdminGate): no pedir una segunda clave.
+  const [logueado, setLogueado] = useState(true);
   const [clave, setClave] = useState("");
   const [errorLogin, setErrorLogin] = useState("");
   const [pestana, setPestana] = useState<"catalogo" | "alta" | "ventas" | "caja" | "cargar_venta">("catalogo");
