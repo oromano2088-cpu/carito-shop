@@ -41,6 +41,11 @@ const PASOS: Paso[] = [
     texto: "Agregá productos al carrito y confirmá el pedido. Coordinamos pago (efectivo, transferencia o Mercado Pago) y entrega por WhatsApp.",
   },
   {
+    icono: <span className="text-4xl">📲</span>,
+    titulo: "Tenela en tu celular",
+    texto: "En la portada tocá «Instalar» y CARITO.SHOP te queda como una app más, con su ícono. Con «Compartir» se la mandás a quien quieras.",
+  },
+  {
     icono: <span className="text-4xl">🔥</span>,
     titulo: "Feed",
     texto: "En la pestaña «Feed» ves los productos a pantalla completa: deslizá hacia arriba para pasar al siguiente. ¿Olvidaste algo? Tocá «?» arriba para ver esta guía de nuevo.",

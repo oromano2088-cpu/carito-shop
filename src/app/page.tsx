@@ -7,6 +7,7 @@ import { StoreHeader } from "@/components/StoreHeader";
 import { ProductCard } from "@/components/ProductCard";
 import { BottomNav } from "@/components/BottomNav";
 import { StoreInfo } from "@/components/StoreInfo";
+import { AppPromo } from "@/components/AppPromo";
 
 export default function HomePage() {
   const { products } = useApp();
@@ -49,6 +50,7 @@ export default function HomePage() {
         onCategoria={setCategoria}
       />
       <div className="mx-auto max-w-lg px-4 py-4 flex flex-col gap-6">
+        {!search && !categoria && <AppPromo />}
         {novedades.length > 0 && !search && !categoria && (
           <div>
             <h2 className="text-sm font-bold text-muted mb-2 uppercase tracking-wide">🆕 Novedades</h2>
