@@ -585,6 +585,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return product;
   }, []);
 
+  // Ofertas que vencen con la tienda abierta: se quitan solas y el precio vuelve al normal en todos lados.
+  useEffect(() => {
+    const t = setInterval(() => {
+      const ahora = Date.now();
+      const vencida = (p: Product) => !!p.ofertaHasta && new Date(p.ofertaHasta).getTime() <= ahora;
+      setState((s) =>
+        s.products.some(vencida)
+          ? { ...s, products: s.products.map((p) => (vencida(p) ? { ...p, precioOferta: undefined, ofertaHasta: undefined } : p)) }
+          : s
+      );
+    }, 5000);
+    return () => clearInterval(t);
+  }, []);
+
   const updateProduct = useCallback((id: string, patch: Partial<Product>) => {
     setState((s) => ({ ...s, products: s.products.map((p) => (p.id === id ? { ...p, ...patch } : p)) }));
     if (supabaseEnabled && supabase) {

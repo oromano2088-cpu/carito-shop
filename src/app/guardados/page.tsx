@@ -40,7 +40,7 @@ export default function GuardadosPage() {
           ))}
           {items.length === 0 && (
             <p className="text-center text-muted py-16 text-sm">
-              Todavía no {tab === "guardados" ? "guardaste" : "le diste like a"} ningún producto. Explorá el catálogo o el feed 🔥
+              Todavía no {tab === "guardados" ? "guardaste" : "le diste like a"} ningún producto. Explorá el catálogo o las ofertas 🔥
             </p>
           )}
         </div>

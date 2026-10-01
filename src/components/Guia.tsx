@@ -47,8 +47,8 @@ const PASOS: Paso[] = [
   },
   {
     icono: <span className="text-4xl">🔥</span>,
-    titulo: "Feed",
-    texto: "En la pestaña «Feed» ves los productos a pantalla completa: deslizá hacia arriba para pasar al siguiente. ¿Olvidaste algo? Tocá «?» arriba para ver esta guía de nuevo.",
+    titulo: "Ofertas",
+    texto: "En la pestaña «Ofertas» están los descuentos por tiempo limitado, con el reloj de cuánto falta: cuando se termina el tiempo, la oferta desaparece. Deslizá hacia arriba para ver la siguiente. ¿Olvidaste algo? Tocá «?» arriba para ver esta guía de nuevo.",
   },
 ];
 

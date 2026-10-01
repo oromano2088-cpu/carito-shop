@@ -48,8 +48,8 @@ export function productToRow(p: Partial<Product>) {
   if (p.descripcion !== undefined) row.descripcion = p.descripcion;
   if (p.caracteristicas !== undefined) row.caracteristicas = p.caracteristicas;
   if (p.precio !== undefined) row.precio = p.precio;
-  if (p.precioOferta !== undefined) row.precio_oferta = p.precioOferta;
-  if (p.ofertaHasta !== undefined) row.oferta_hasta = p.ofertaHasta;
+  if ("precioOferta" in p) row.precio_oferta = p.precioOferta ?? null;
+  if ("ofertaHasta" in p) row.oferta_hasta = p.ofertaHasta ?? null;
   if (p.imagen !== undefined) row.imagen = p.imagen;
   if (p.imagenes !== undefined) row.imagenes = p.imagenes;
   if (p.stock !== undefined) row.stock = p.stock;

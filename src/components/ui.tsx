@@ -25,7 +25,7 @@ export function CountdownChip({ iso }: { iso?: string }) {
   const pad = (n: number) => n.toString().padStart(2, "0");
   return (
     <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-full bg-danger/15 text-danger border border-danger/30">
-      ⚡ Termina en {pad(left.h)}:{pad(left.m)}:{pad(left.s)}
+      ⚡ Termina en {left.h >= 24 && `${Math.floor(left.h / 24)}d `}{pad(left.h % 24)}:{pad(left.m)}:{pad(left.s)}
     </span>
   );
 }

@@ -132,6 +132,31 @@ function ProductForm({ product }: { product: Product }) {
       {precioOferta && (
         <Field label="Oferta válida hasta">
           <input value={ofertaHasta} onChange={(e) => setOfertaHasta(e.target.value)} type="datetime-local" className="input" />
+          <div className="flex flex-wrap gap-2 mt-2">
+            {[
+              { t: "24 horas", h: 24 },
+              { t: "3 días", h: 72 },
+              { t: "7 días", h: 168 },
+            ].map((o) => (
+              <button
+                key={o.t}
+                type="button"
+                onClick={() => setOfertaHasta(toDatetimeLocal(new Date(Date.now() + o.h * 3600000).toISOString()))}
+                className="text-xs font-semibold px-3 py-1.5 rounded-full border border-border bg-surface-2"
+              >
+                {o.t}
+              </button>
+            ))}
+            <button type="button" onClick={() => { setPrecioOferta(""); setOfertaHasta(""); }} className="text-xs font-semibold px-3 py-1.5 rounded-full border border-danger/40 text-danger">
+              Quitar oferta
+            </button>
+          </div>
+          {Number(precioOferta) >= Number(precio) && (
+            <p className="text-xs text-danger mt-2">El precio de oferta tiene que ser menor al precio normal; si no, la oferta no se muestra.</p>
+          )}
+          {!ofertaHasta && (
+            <p className="text-xs text-warn mt-2">Sin fecha la oferta no tiene contador y no vence sola. Elegí una duración.</p>
+          )}
         </Field>
       )}
 
