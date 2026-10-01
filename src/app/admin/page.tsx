@@ -2,8 +2,9 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../supabase";
 
+// Catálogo único: el panel trabaja sobre la tabla "products" (la misma que ve la tienda).
 type Producto = {
-  id: number; nombre: string; descripcion: string; precio: number;
+  id: string; vendidos?: number; nombre: string; descripcion: string; precio: number;
   precio_oferta: number | null; oferta_hasta: string | null; emoji: string;
   activo: boolean; imagen: string; imagen2: string; imagen3: string;
   categoria: string; stock: number;
@@ -31,7 +32,7 @@ type PagoParcial = {
   monto: number; comprobante_url?: string; cuenta: string; creado_en: string;
 };
 type ItemCarrito = {
-  productoId: number; nombre: string; precio: number; cantidad: number;
+  productoId: string; nombre: string; precio: number; cantidad: number;
 };
 
 const CLAVE = "carito2026";
@@ -58,6 +59,19 @@ const normalizarCuenta = (str: string): string => {
   return s;
 };
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+const desdeProducts = (r: any): Producto => {
+  const imgs: string[] = Array.isArray(r.imagenes) ? r.imagenes : [];
+  return {
+    id: r.id, vendidos: r.vendidos || 0, nombre: r.titulo, descripcion: r.descripcion || "",
+    precio: Number(r.precio), precio_oferta: r.precio_oferta != null ? Number(r.precio_oferta) : null,
+    oferta_hasta: r.oferta_hasta, emoji: "🛍️", activo: r.status !== "pausado",
+    imagen: r.imagen || imgs[0] || "", imagen2: imgs[1] || "", imagen3: imgs[2] || "",
+    categoria: r.categoria || "", stock: r.stock || 0,
+  };
+};
+const fotos = (p: { imagen: string; imagen2: string; imagen3: string }) => [p.imagen, p.imagen2, p.imagen3].filter(Boolean);
+
 const fmt = (n: number) => "$" + Math.round(n).toLocaleString("es-AR");
 
 export default function AdminMobileCompleto() {
@@ -65,7 +79,7 @@ export default function AdminMobileCompleto() {
   const [logueado, setLogueado] = useState(true);
   const [clave, setClave] = useState("");
   const [errorLogin, setErrorLogin] = useState("");
-  const [pestana, setPestana] = useState<"catalogo" | "alta" | "ventas" | "caja" | "cargar_venta">("catalogo");
+  const [pestana, setPestana] = useState<"catalogo" | "alta" | "ventas" | "caja" | "cargar_venta">("cargar_venta");
 
   const [cajas, setCajas] = useState({ alias: 0, brubankSenora: 0, efectivo: 0 });
   const [productos, setProductos] = useState<Producto[]>([]);
@@ -127,7 +141,8 @@ export default function AdminMobileCompleto() {
 
   const cargarTodo = async () => {
     setCargando(true);
-    const { data: prodData } = await supabase.from("productos").select("*").order("id", { ascending: false });
+    const { data: prodRows } = await supabase.from("products").select("*").order("creado_en", { ascending: false });
+    const prodData: Producto[] | null = prodRows ? prodRows.map(desdeProducts) : null;
     const { data: catData } = await supabase.from("categorias").select("*").order("Nombre", { ascending: true });
     const { data: pData } = await supabase.from("pedidos").select("*").order("creado_en", { ascending: false });
     const { data: gData } = await supabase.from("gastos_distribuidoras").select("*").order("creado_en", { ascending: false });
@@ -220,23 +235,22 @@ export default function AdminMobileCompleto() {
   const mostrarToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
   const login = () => { if (clave === CLAVE) setLogueado(true); else setErrorLogin("Clave incorrecta"); };
 
-  const toggleActivo = async (id: number, activo: boolean) => {
-    await supabase.from("productos").update({ activo: !activo }).eq("id", id); cargarTodo();
+  const toggleActivo = async (id: string, activo: boolean) => {
+    await supabase.from("products").update({ status: activo ? "pausado" : "activo" }).eq("id", id); cargarTodo();
   };
-  const actualizarStock = async (id: number, stockActual: number, cambio: number) => {
-    await supabase.from("productos").update({ stock: Math.max(0, stockActual + cambio) }).eq("id", id); cargarTodo();
+  const actualizarStock = async (id: string, stockActual: number, cambio: number) => {
+    await supabase.from("products").update({ stock: Math.max(0, stockActual + cambio) }).eq("id", id); cargarTodo();
   };
-  const eliminarProducto = async (id: number) => {
-    await supabase.from("productos").delete().eq("id", id);
+  const eliminarProducto = async (id: string) => {
+    await supabase.from("products").delete().eq("id", id);
     setConfirmarEliminar(null); setVistaProductoCompleto(null);
     mostrarToast("Producto eliminado"); cargarTodo();
   };
   const guardarEdicion = async () => {
     if (!editando) return;
-    await supabase.from("productos").update({
-      nombre: editando.nombre, descripcion: editando.descripcion, precio: editando.precio,
-      precio_oferta: editando.precio_oferta, emoji: editando.emoji, imagen: editando.imagen,
-      imagen2: editando.imagen2, imagen3: editando.imagen3,
+    await supabase.from("products").update({
+      titulo: editando.nombre, descripcion: editando.descripcion, precio: editando.precio,
+      precio_oferta: editando.precio_oferta, imagen: editando.imagen, imagenes: fotos(editando),
       categoria: editando.categoria, stock: editando.stock,
     }).eq("id", editando.id);
     setEditando(null); mostrarToast("Producto actualizado"); cargarTodo();
@@ -254,11 +268,12 @@ export default function AdminMobileCompleto() {
 
   const agregar = async () => {
     if (!nuevo.nombre || !nuevo.precio) { mostrarToast("Completá nombre y precio"); return; }
-    await supabase.from("productos").insert({
-      nombre: nuevo.nombre, descripcion: nuevo.descripcion, precio: parseInt(nuevo.precio),
-      precio_oferta: nuevo.precio_oferta ? parseInt(nuevo.precio_oferta) : null,
-      emoji: nuevo.emoji, imagen: nuevo.imagen, imagen2: nuevo.imagen2, imagen3: nuevo.imagen3,
-      categoria: nuevo.categoria, stock: parseInt(nuevo.stock) || 0, activo: true,
+    await supabase.from("products").insert({
+      id: "p_" + Math.random().toString(36).slice(2, 9), titulo: nuevo.nombre, descripcion: nuevo.descripcion,
+      precio: parseInt(nuevo.precio), precio_oferta: nuevo.precio_oferta ? parseInt(nuevo.precio_oferta) : null,
+      imagen: nuevo.imagen, imagenes: fotos(nuevo), categoria: nuevo.categoria, stock: parseInt(nuevo.stock) || 0,
+      stock_minimo: 3, caracteristicas: [], garantia_meses: 0, status: "activo", vendidos: 0,
+      likes: 0, guardados: 0, compartidos: 0, vistas: 0,
     });
     mostrarToast("Producto publicado");
     setNuevo({ nombre: "", descripcion: "", precio: "", precio_oferta: "", oferta_hasta: "", emoji: "🛍️", imagen: "", imagen2: "", imagen3: "", categoria: listadoCategorias[0]?.Nombre || "", stock: "0" });
@@ -276,7 +291,7 @@ export default function AdminMobileCompleto() {
 
   const agregarAlCarritoVenta = () => {
     if (!productoSeleccionado) { mostrarToast("Elegí un producto"); return; }
-    const prod = productos.find(p => p.id === parseInt(productoSeleccionado));
+    const prod = productos.find(p => p.id === productoSeleccionado);
     if (!prod) return;
     const cantidad = parseInt(cantidadSeleccionada) || 1;
     const precio = prod.precio_oferta || prod.precio;
@@ -290,7 +305,7 @@ export default function AdminMobileCompleto() {
     mostrarToast("Producto agregado al pedido");
   };
 
-  const quitarDelCarritoVenta = (productoId: number) => {
+  const quitarDelCarritoVenta = (productoId: string) => {
     setCarritoVenta(prev => prev.filter(i => i.productoId !== productoId));
   };
 
@@ -327,8 +342,9 @@ export default function AdminMobileCompleto() {
       for (const item of carritoVenta) {
         const prod = productos.find(p => p.id === item.productoId);
         if (prod) {
-          await supabase.from("productos").update({
-            stock: Math.max(0, prod.stock - item.cantidad)
+          await supabase.from("products").update({
+            stock: Math.max(0, prod.stock - item.cantidad),
+            vendidos: (prod.vendidos || 0) + item.cantidad,
           }).eq("id", prod.id);
         }
       }
@@ -530,24 +546,15 @@ export default function AdminMobileCompleto() {
         </div>
       )}
 
-      <div style={{ padding: "8px 4px", borderBottom: "1px solid #222", marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div>
-          <h1 style={{ ...neon, fontSize: 19, fontWeight: 900, margin: 0 }}>CARITO.SHOP - Admin</h1>
-          <span style={{ color: "#555", fontSize: 11 }}>Panel de Control</span>
-        </div>
-        <a href="/" style={{ color: "#ff2d78", fontSize: 12, textDecoration: "none" }}>Ver tienda</a>
-      </div>
-
-      <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 20 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-          <button onClick={() => setPestana("catalogo")} style={{ padding: 12, borderRadius: 10, border: "none", fontWeight: 700, fontSize: 12, background: pestana === "catalogo" ? "#ff2d78" : "#111", color: "#fff", cursor: "pointer" }}>📦 Catalogo</button>
-          <button onClick={() => setPestana("alta")} style={{ padding: 12, borderRadius: 10, border: "none", fontWeight: 700, fontSize: 12, background: pestana === "alta" ? "#ff2d78" : "#111", color: "#fff", cursor: "pointer" }}>✨ Nuevo Producto</button>
-        </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 20, maxWidth: 600, marginLeft: "auto", marginRight: "auto" }}>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
-          <button onClick={() => setPestana("cargar_venta")} style={{ padding: 12, borderRadius: 10, border: "1px dashed #ff2d78", fontWeight: 800, fontSize: 11, background: pestana === "cargar_venta" ? "#ff2d78" : "#111", color: "#fff", cursor: "pointer" }}>📝 Cargar Venta</button>
-          <button onClick={() => setPestana("ventas")} style={{ padding: 12, borderRadius: 10, border: "none", fontWeight: 700, fontSize: 11, background: pestana === "ventas" ? "#ff2d78" : "#111", color: "#fff", cursor: "pointer" }}>📈 Ordenes ({pedidosActivos.length})</button>
-          <button onClick={() => setPestana("caja")} style={{ padding: 12, borderRadius: 10, border: "none", fontWeight: 700, fontSize: 11, background: pestana === "caja" ? "#ff2d78" : "#111", color: "#fff", cursor: "pointer" }}>💰 Caja</button>
+          <button onClick={() => setPestana("cargar_venta")} style={{ padding: 12, borderRadius: 10, border: "1px dashed #ff2d78", fontWeight: 800, fontSize: 12, background: pestana === "cargar_venta" ? "#ff2d78" : "#111", color: "#fff", cursor: "pointer" }}>📝 Cargar venta</button>
+          <button onClick={() => setPestana("ventas")} style={{ padding: 12, borderRadius: 10, border: "none", fontWeight: 700, fontSize: 12, background: pestana === "ventas" ? "#ff2d78" : "#111", color: "#fff", cursor: "pointer" }}>🧾 Pedidos ({pedidosActivos.length})</button>
+          <button onClick={() => setPestana("caja")} style={{ padding: 12, borderRadius: 10, border: "none", fontWeight: 700, fontSize: 12, background: pestana === "caja" ? "#ff2d78" : "#111", color: "#fff", cursor: "pointer" }}>💰 Caja</button>
         </div>
+        <a href="/admin/productos" style={{ display: "block", padding: 10, borderRadius: 10, background: "#0d0d0d", border: "1px solid #222", color: "#aaa", fontSize: 12, textAlign: "center", textDecoration: "none" }}>
+          📦 Para cargar o editar productos y stock, entrá en <b style={{ color: "#fff" }}>Productos</b> (abajo) →
+        </a>
       </div>
 
       <div style={{ maxWidth: 600, margin: "0 auto" }}>

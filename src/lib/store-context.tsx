@@ -535,6 +535,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const db = supabase;
     if (supabaseEnabled && db && sideEffects.order) {
       db.from("orders").insert(orderToRow(sideEffects.order)).then(({ error }) => error && warn("pedido", error));
+      // Mismo pedido en el panel de ventas (Pedidos / Caja), para tener un solo lugar donde gestionarlos.
+      const o = sideEffects.order;
+      const cuenta = o.metodoPago === "efectivo" ? "Efectivo" : o.metodoPago === "mercadopago" ? "Web · Mercado Pago" : "Web · Transferencia";
+      db.from("pedidos")
+        .insert({
+          cliente_nombre: o.cliente.nombre,
+          cliente_telefono: o.cliente.telefono,
+          cliente_direccion: o.entrega === "retiro" ? "Retira en el local" : o.direccion || "",
+          productos: "🌐 Web: " + o.items.map((i) => `${i.titulo}${i.variante ? ` (${i.variante})` : ""} x${i.cantidad}`).join(", "),
+          total: o.total,
+          estado_pago: "pendiente_pago",
+          estado_entrega: "pendiente_entrega",
+          aprobado: false,
+          anticipo: 0,
+          cuenta_ingreso: cuenta,
+          es_dropshipping: false,
+        })
+        .then(({ error }) => error && warn("pedido en el panel", error));
       sideEffects.productPatches.forEach(({ id, patch }) => {
         db.from("products").update(productToRow(patch)).eq("id", id).then(({ error }) => error && warn("stock de producto", error));
       });

@@ -6,9 +6,8 @@ import { cn } from "@/lib/utils";
 import { AdminGate, lockAdmin } from "@/components/AdminGate";
 
 const items = [
-  { href: "/admin", label: "Panel", icon: "📊" },
+  { href: "/admin", label: "Ventas y caja", icon: "💰" },
   { href: "/admin/productos", label: "Productos", icon: "📦" },
-  { href: "/admin/pedidos", label: "Pedidos", icon: "🧾" },
   { href: "/admin/clientes", label: "Clientes", icon: "👥" },
   { href: "/admin/marketing", label: "Marketing", icon: "🎯" },
   { href: "/admin/ia", label: "Asistente IA", icon: "✨" },
@@ -45,7 +44,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div className="flex-1 pb-20 mx-auto w-full max-w-3xl">{children}</div>
 
         <nav className="fixed bottom-0 inset-x-0 z-40 border-t border-border bg-surface/95 backdrop-blur">
-          <div className="mx-auto max-w-3xl grid grid-cols-7">
+          <div className="mx-auto max-w-3xl grid grid-cols-6">
             {items.map((it) => {
               const active = pathname === it.href;
               return (
