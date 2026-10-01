@@ -10,10 +10,25 @@ export function PwaInit() {
   return null;
 }
 
+const FRASES = ["Entrás en un toque, como cualquier app.", "Enterate primero de las ofertas.", "Es gratis y casi no ocupa espacio.", "Consultá y comprá por WhatsApp al instante."];
+const FRASES_INSTALADA = ["Compartila con tus amigos y familia.", "Mandásela a quien busque tecnología.", "Cuantos más seamos, más ofertas traemos."];
+
 /** Franja "Instalá la app / Compartir la app" de la portada. */
 export function AppPromo() {
   const [instalada, setInstalada] = useState(true); // arranca oculta hasta saberlo (evita parpadeo)
   const [ayuda, setAyuda] = useState(false);
+  const [frase, setFrase] = useState(0);
+  const [vuelo, setVuelo] = useState(0);
+
+  useEffect(() => {
+    const t = setInterval(() => setFrase((f) => f + 1), 3200);
+    return () => clearInterval(t);
+  }, []);
+
+  const compartir = () => {
+    setVuelo((v) => v + 1);
+    compartirApp();
+  };
 
   useEffect(() => {
     const actualizar = () => setInstalada(yaInstalada());
@@ -28,24 +43,34 @@ export function AppPromo() {
 
   return (
     <>
-      <section className="rounded-2xl border border-accent/30 bg-accent/10 p-3 flex items-center gap-3">
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold leading-tight">{instalada ? "¿Te gusta CARITO.SHOP?" : "Llevá CARITO.SHOP en tu celular"}</p>
-          <p className="text-xs text-muted leading-snug">
-            {instalada ? "Compartila con tus amigos y familia." : "Entrás en un toque y ves las ofertas primero."}
-          </p>
+      <section className="promo-card">
+        <div className="promo-inner p-3 flex items-center gap-3">
+          <div className="promo-telefono shrink-0 h-11 w-11 rounded-full bg-accent/15 flex items-center justify-center text-2xl" aria-hidden="true">
+            {instalada ? "💜" : "📲"}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold leading-tight">{instalada ? "¿Te gusta CARITO.SHOP?" : "Llevá CARITO.SHOP en tu celular"}</p>
+            <p key={frase} className="promo-frase text-xs text-muted leading-snug">
+              {(instalada ? FRASES_INSTALADA : FRASES)[frase % (instalada ? FRASES_INSTALADA : FRASES).length]}
+            </p>
+          </div>
+          <div className="shrink-0 flex flex-col gap-1.5">
+            {!instalada && (
+              <button onClick={instalar} className="promo-pulso rounded-xl px-3 py-2 text-xs font-bold bg-accent text-white active:scale-95 transition">
+                📲 Instalar
+              </button>
+            )}
+            <button
+              onClick={compartir}
+              className="rounded-xl px-3 py-2 text-xs font-bold bg-surface-2 border border-border flex items-center justify-center gap-1.5 active:scale-95 transition"
+            >
+              <span key={vuelo} className={vuelo ? "promo-vuela inline-flex" : "inline-flex"}>
+                <ShareIcon className="h-4 w-4" />
+              </span>
+              Compartir
+            </button>
+          </div>
         </div>
-        {!instalada && (
-          <button onClick={instalar} className="shrink-0 rounded-xl px-3 py-2 text-xs font-bold bg-accent text-white">
-            📲 Instalar
-          </button>
-        )}
-        <button
-          onClick={compartirApp}
-          className="shrink-0 rounded-xl px-3 py-2 text-xs font-bold bg-surface-2 border border-border flex items-center gap-1.5"
-        >
-          <ShareIcon className="h-4 w-4" /> Compartir
-        </button>
       </section>
 
       {ayuda && (
