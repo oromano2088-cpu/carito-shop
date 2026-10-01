@@ -125,7 +125,17 @@ function ProductForm({ product }: { product: Product }) {
           <input value={precio} onChange={(e) => setPrecio(e.target.value)} type="number" className="input" />
         </Field>
         <Field label="Precio oferta $ (opcional)">
-          <input value={precioOferta} onChange={(e) => setPrecioOferta(e.target.value)} type="number" className="input" placeholder="Sin oferta" />
+          <input
+            value={precioOferta}
+            onChange={(e) => {
+              setPrecioOferta(e.target.value);
+              // Toda oferta nueva arranca con 24 hs de contador (se puede cambiar abajo).
+              if (e.target.value && !ofertaHasta) setOfertaHasta(toDatetimeLocal(new Date(Date.now() + 24 * 3600000).toISOString()));
+            }}
+            type="number"
+            className="input"
+            placeholder="Sin oferta"
+          />
         </Field>
       </div>
 
@@ -134,8 +144,9 @@ function ProductForm({ product }: { product: Product }) {
           <input value={ofertaHasta} onChange={(e) => setOfertaHasta(e.target.value)} type="datetime-local" className="input" />
           <div className="flex flex-wrap gap-2 mt-2">
             {[
-              { t: "24 horas", h: 24 },
-              { t: "3 días", h: 72 },
+              { t: "24 hs", h: 24 },
+              { t: "48 hs", h: 48 },
+              { t: "72 hs", h: 72 },
               { t: "7 días", h: 168 },
             ].map((o) => (
               <button
