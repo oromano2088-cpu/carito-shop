@@ -47,7 +47,11 @@ export default function HomePage() {
         onSearch={setSearch}
         categorias={categoriasConProductos}
         categoriaActiva={categoria}
-        onCategoria={setCategoria}
+        onCategoria={(c) => {
+          setCategoria(c);
+          // Al elegir una categoría, la lista arranca desde el primer producto.
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }}
       />
       <div className="mx-auto max-w-lg px-4 py-4 flex flex-col gap-6">
         {!search && !categoria && <AppPromo />}
