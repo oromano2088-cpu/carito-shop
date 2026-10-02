@@ -9,6 +9,8 @@ import { BottomNav } from "@/components/BottomNav";
 import { StoreInfo } from "@/components/StoreInfo";
 import { AppPromo } from "@/components/AppPromo";
 
+const NOVEDADES = "🆕 Novedades";
+
 export default function HomePage() {
   const { products } = useApp();
   const [search, setSearch] = useState("");
@@ -22,13 +24,24 @@ export default function HomePage() {
     return [...ordenadas, ...extra];
   }, [products, todasCategorias]);
 
-  const filtered = useMemo(() => {
+  const filtradosBase = useMemo(() => {
     return products.filter((p) => p.status !== "pausado").filter((p) => {
       const matchSearch = p.titulo.toLowerCase().includes(search.toLowerCase());
-      const matchCat = !categoria || p.categoria === categoria;
+      const matchCat = !categoria || categoria === NOVEDADES || p.categoria === categoria;
       return matchSearch && matchCat;
     });
   }, [products, search, categoria]);
+
+  // Chip "Novedades": los 20 productos más nuevos, del más reciente al más viejo.
+  const filtered = useMemo(
+    () =>
+      categoria === NOVEDADES
+        ? [...filtradosBase]
+            .sort((a, b) => new Date(b.creadoEn).getTime() - new Date(a.creadoEn).getTime())
+            .slice(0, 20)
+        : filtradosBase,
+    [filtradosBase, categoria]
+  );
 
   // Ofertas por tiempo limitado: descuento especial CON fecha de fin (las vencidas ya no llegan acá).
   const enOferta = filtered
@@ -45,7 +58,7 @@ export default function HomePage() {
       <StoreHeader
         search={search}
         onSearch={setSearch}
-        categorias={categoriasConProductos}
+        categorias={[NOVEDADES, ...categoriasConProductos]}
         categoriaActiva={categoria}
         onCategoria={(c) => {
           setCategoria(c);
