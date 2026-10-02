@@ -7,6 +7,7 @@ import { useApp } from "@/lib/store-context";
 import { formatMoney, waLink, productImages, shareProduct } from "@/lib/utils";
 import { Badge, CountdownChip, IconButton, Button, ShareIcon, BookmarkIcon } from "./ui";
 import { ImageCarousel } from "./ImageCarousel";
+import { ConsultaStockOverlay, ConsultaStockButton } from "./ConsultaStock";
 
 export function ProductCard({ product }: { product: Product }) {
   const { toggleLike, toggleSave, isLiked, isSaved, addToCart, registerShare } = useApp();
@@ -46,6 +47,7 @@ export function ProductCard({ product }: { product: Product }) {
         {popHeart && (
           <span className="heart-pop absolute inset-0 flex items-center justify-center text-7xl pointer-events-none">❤️</span>
         )}
+        {agotado && <ConsultaStockOverlay titulo={product.titulo} />}
         <div className="absolute top-3 left-3 flex flex-col gap-1.5 items-start">
           {product.precioOferta && <Badge tone="danger">-{Math.round((1 - product.precioOferta / product.precio) * 100)}%</Badge>}
           {stockBajo && !agotado && <Badge tone="warn">Últimas {product.stock} unidades</Badge>}
@@ -101,13 +103,13 @@ export function ProductCard({ product }: { product: Product }) {
           </div>
         )}
 
-        <Button
-          disabled={agotado}
-          className="w-full mt-1"
-          onClick={() => addToCart(product.id, varianteId)}
-        >
-          {agotado ? "Sin stock" : "Agregar al carrito 🛒"}
-        </Button>
+        {agotado ? (
+          <ConsultaStockButton titulo={product.titulo} className="w-full mt-1" />
+        ) : (
+          <Button className="w-full mt-1" onClick={() => addToCart(product.id, varianteId)}>
+            Agregar al carrito 🛒
+          </Button>
+        )}
       </div>
     </article>
   );

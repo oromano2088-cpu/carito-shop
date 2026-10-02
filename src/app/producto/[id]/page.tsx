@@ -8,6 +8,7 @@ import { Badge, CountdownChip, IconButton, Button, ShareIcon, BookmarkIcon } fro
 import { BottomNav } from "@/components/BottomNav";
 import { ImageCarousel } from "@/components/ImageCarousel";
 import { useWhatsapp } from "@/lib/whatsapp";
+import { ConsultaStockOverlay } from "@/components/ConsultaStock";
 
 export default function ProductoDetalle({ params }: { params: Promise<{ id: string }> }) {
   const whatsapp = useWhatsapp();
@@ -44,6 +45,7 @@ export default function ProductoDetalle({ params }: { params: Promise<{ id: stri
     <main className="flex-1 pb-28">
       <div className="relative w-full aspect-square bg-surface-2">
         <ImageCarousel images={productImages(product)} alt={product.titulo} fit="contain" />
+        {agotado && <ConsultaStockOverlay titulo={product.titulo} />}
         <Link href="/" className="absolute top-4 left-4 h-9 w-9 rounded-full bg-black/40 backdrop-blur flex items-center justify-center text-white z-10">
           ←
         </Link>
