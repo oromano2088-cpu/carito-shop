@@ -19,8 +19,7 @@ export function ConsultaStockOverlay({ titulo }: { titulo: string }) {
         onClick={(e) => e.stopPropagation()}
         className="pointer-events-auto flex flex-col items-center gap-0.5 rounded-2xl bg-black/55 backdrop-blur-sm border border-white/25 px-6 py-3 text-white shadow-lg"
       >
-        <span className="text-[11px] uppercase tracking-wider text-white/80">Sin stock por ahora</span>
-        <span className="text-base font-extrabold">💬 Consultá stock</span>
+        <span className="text-base font-extrabold">💬 Consultar stock</span>
       </a>
     </div>
   );

@@ -51,7 +51,6 @@ export function ProductCard({ product }: { product: Product }) {
         <div className="absolute top-3 left-3 flex flex-col gap-1.5 items-start">
           {product.precioOferta && <Badge tone="danger">-{Math.round((1 - product.precioOferta / product.precio) * 100)}%</Badge>}
           {stockBajo && !agotado && <Badge tone="warn">Últimas {product.stock} unidades</Badge>}
-          {agotado && <Badge tone="default">Sin stock</Badge>}
         </div>
         {product.ofertaHasta && !agotado && (
           <div className="absolute bottom-3 left-3">
