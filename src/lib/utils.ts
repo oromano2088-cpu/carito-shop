@@ -24,10 +24,25 @@ export function waLink(phone: string, message: string) {
   return `https://wa.me/${clean}?text=${encodeURIComponent(message)}`;
 }
 
+/** Fecha/hora de fin de una oferta en hora argentina, ej: "mar 06/10 18:00". Vacío si ya venció. */
+export function finOferta(iso?: string): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime()) || d.getTime() <= Date.now()) return "";
+  const tz = "America/Argentina/Buenos_Aires";
+  const dia = d.toLocaleDateString("es-AR", { weekday: "short", timeZone: tz }).replace(".", "");
+  const fecha = d.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", timeZone: tz });
+  const hora = d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: tz });
+  return `${dia} ${fecha} ${hora}`;
+}
+
 /** Abre el menú nativo de compartir del celular (WhatsApp, Instagram, copiar link...).
- *  Si el navegador no lo soporta, abre WhatsApp directamente. */
-export async function shareProduct(titulo: string, precio: string, url: string) {
-  const text = `¡Mirá esto! ${titulo} a ${precio} 🔥`;
+ *  Si el navegador no lo soporta, abre WhatsApp directamente.
+ *  Con oferta vigente agrega el precio anterior y la hora de fin. */
+export async function shareProduct(titulo: string, precio: string, url: string, oferta?: { antes: string; hasta?: string }) {
+  const fin = finOferta(oferta?.hasta);
+  let text = `¡Mirá esto! ${titulo} a ${precio} 🔥`;
+  if (oferta && fin) text = `🔥 OFERTA: ${titulo} a ${precio} (antes ${oferta.antes})\n⏰ Válida hasta ${fin}`;
   if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
     try {
       await navigator.share({ title: titulo, text, url });

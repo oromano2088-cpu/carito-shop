@@ -23,7 +23,7 @@ export function ProductCard({ product }: { product: Product }) {
   const share = () => {
     registerShare(product.id);
     const url = typeof window !== "undefined" ? `${window.location.origin}/producto/${product.id}` : "";
-    shareProduct(product.titulo, formatMoney(precioFinal), url);
+    shareProduct(product.titulo, formatMoney(precioFinal), url, product.precioOferta ? { antes: formatMoney(product.precio), hasta: product.ofertaHasta } : undefined);
   };
 
   return (

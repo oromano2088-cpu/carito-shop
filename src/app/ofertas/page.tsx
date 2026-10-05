@@ -84,10 +84,10 @@ export default function OfertasPage() {
     if (p) registerView(p.id);
   };
 
-  const share = (id: string, titulo: string, precio: number) => {
+  const share = (id: string, titulo: string, precio: number, antes: number, hasta?: string) => {
     registerShare(id);
     const url = typeof window !== "undefined" ? `${window.location.origin}/producto/${id}` : "";
-    shareProduct(titulo, formatMoney(precio), url);
+    shareProduct(titulo, formatMoney(precio), url, { antes: formatMoney(antes), hasta });
   };
 
   return (
@@ -185,7 +185,7 @@ export default function OfertasPage() {
                     <span className="text-white text-xs font-semibold">Consultar</span>
                   </div>
                   <div className="flex flex-col items-center gap-1">
-                    <IconButton label="Compartir" onClick={() => share(p.id, p.titulo, precioFinal)}>
+                    <IconButton label="Compartir" onClick={() => share(p.id, p.titulo, precioFinal, p.precio, p.ofertaHasta)}>
                       <ShareIcon />
                     </IconButton>
                     <span className="text-white text-xs font-semibold">Compartir</span>
