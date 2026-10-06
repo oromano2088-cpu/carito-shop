@@ -30,6 +30,37 @@ export function CountdownChip({ iso }: { iso?: string }) {
   );
 }
 
+/** Banner grande de oferta para la ficha de producto: contador bien visible + ahorro. */
+export function OfertaBanner({ iso, ahorro }: { iso?: string; ahorro?: string }) {
+  const [left, setLeft] = useState(() => timeLeft(iso));
+  useEffect(() => {
+    if (!iso) return;
+    const t = setInterval(() => setLeft(timeLeft(iso)), 1000);
+    return () => clearInterval(t);
+  }, [iso]);
+  if (!left) return null;
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  const dias = Math.floor(left.h / 24);
+  const ultimaHora = left.h < 1;
+  return (
+    <div
+      className={`flex items-center justify-between gap-3 rounded-2xl px-4 py-2.5 text-white shadow-lg ${ultimaHora ? "animate-pulse" : ""}`}
+      style={{ background: "linear-gradient(90deg,#e11d48,#f97316)" }}
+    >
+      <div className="flex flex-col leading-tight">
+        <span className="text-[11px] font-bold tracking-wider uppercase">⚡ {ultimaHora ? "¡Última hora!" : "Oferta por tiempo limitado"}</span>
+        {ahorro && <span className="text-xs font-semibold opacity-90">{ahorro}</span>}
+      </div>
+      <div className="flex flex-col items-end leading-tight">
+        <span className="text-[10px] font-semibold uppercase opacity-90">Termina en</span>
+        <span className="text-xl font-extrabold tabular-nums">
+          {dias > 0 && `${dias}d `}{pad(left.h % 24)}:{pad(left.m)}:{pad(left.s)}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export function IconButton({
   onClick,
   active,
